@@ -12,6 +12,7 @@
     bottom: 5em,
   ),
   numbering: "1",
+  columns: 2
 )
 
 #place(
@@ -34,6 +35,75 @@
 ]
 
 #set heading(numbering: "1.a.")
+#place(
+  top + center,
+  scope: "parent",
+  float: true,
+  clearance: 2em,
+)[
+    #par(justify: false)[
+    1 Encoder-Decoder models based on the transformer can perform a wide range of tasks
+    by first mapping tokens to a sequence of encoder hidden states (embeddings), and then remapping them
+    autoregressively to a new sequence. 
+    2 Without additional inductive biases, embedding spaces suffer from a
+    lack of interpretability, despite having a complete encoding of information. 
+    3 We investigate whether such
+    embeddings can be refined and disentangled by a Variational Autoencoder (VAE). 
+    4 To do so, we train the VAE
+    to reproduce the original sequence through an information bottleneck. 
+    5 We use a factor-VAE architecture
+    to decorrelate the latent dimensions, which helps smooth the representation, and we include task-reserved
+    dimensions for performing emotion-translating tasks: 
+    particularly, we use an attention pooling component
+    to learn a two-way mapping between some dimensions of the latents and the emotion labels, producing
+    an emotion-translating sequence-to-sequence model.
+    6 //results 
+    7 // future implications
+  ]
+]
+
+= Introduction
+
+== Motivation and Task Relevance
+
+== Methodology
+
+= Datasets
+
+== Motivation for Dataset Selection
+
+== Exploration
+
+= Architecture
+
+== Backbone Model
+
+== VAE
+
+= Evaluation
+
+== Metrics
+
+== Human-Guided LLM Annotation
+
+== Ablations
+
+= Results
+
+== Emotion Translation Performance
+
+== Meaning Preservation Performance
+
+= Discussion
+
+= Conclusion
+
+
+
+
+
+
+#pagebreak()
 
 *What Meaning Preservation Verification Model we pick and why*
 
