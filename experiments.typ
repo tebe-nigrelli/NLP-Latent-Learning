@@ -27,3 +27,21 @@
 1. Try the vae without the factor (I think it changes disentagled stuff etc)
 
 
+= Evaluation
+
+- *T5 Finetuning*: Exact Match Rate, Blue Score, Rouge Score. We do not want complete reconstruction, otherwise the model will collapse.
+- *Reconstruction metrics*: grid search for coefficients in VAE loss, 
+- Disentanglement metrics: DCI and MIG
+- *Emotion classification*: entropy, but we need weighted loss in order to have uniformly capable model due to class imbalances.
+  - _Multi-hot_: Binary Cross Entropy applied to the softmax activations of each label. Ensures each error in classification has the same unit of measure.
+  - _One-hot_: (Weighted) Cross Entropy. 
+  - After training, we can check *F1 score* and *(Balanced) Accuracy* and *per-class recall* on the validation dataset.
+  - *Plots of error*: (normalized) confusion matrix, 
+
+- *Human-guided LLM assessment*: use ollama {qwen3.5:9b, gemma4:e4b} to answer questions if two phrases match.
+  - *Predict Emotion*: finetune, emotion prediction.
+    - Get a raw semantic-similarity score from the LLM, then adjust it with embedding cosine and your  human labels.
+    - Calibrate that score with a simple regressor, then add a conformal interval for error bounds.
+  - *Compare Meaning*: finetune, meaning comparison. Platt scaling
+    - Get raw probabilities over emotion labels from the LLM, using fixed label definitions and examples.
+    - Calibrate those probabilities on human labels, then output a conformal label set for uncertainty.
