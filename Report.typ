@@ -16,24 +16,20 @@
   numbering: "1",
 )
 
-#place(
-  top + center,
-  float: true,
-  scope: "parent",
-)[
-  #align(center)[
-    #title()
+#align(center)[
+  #title()
 
-    #grid(
-      columns: (1fr, 1fr, 1.1fr, 1fr, 1fr),
-      gutter: 1em,
-      align: center,
-      [*Tebe Nigrelli*], [*Federico Pezzoli*], [*Alessandro Reali*], [*Luca Ricci*], [*Ali Emre Senel*],
-    )
+  #grid(
+    columns: (1fr, 1fr, 1.1fr, 1fr, 1fr),
+    gutter: 1em,
+    align: center,
+    [*Tebe Nigrelli*], [*Federico Pezzoli*], [*Alessandro Reali*], [*Luca Ricci*], [*Ali Emre Senel*],
+  )
 
     #line(length: 100%)
   ]
-]
+
+// TODO insert abstract and conclusion into README
 
 #align(center)[
   #par(justify: true)[
@@ -59,13 +55,19 @@
 
 = Introduction
 
+// TODO introduce SOTA as keyword since it is used later
+
 == Motivation and Task Relevance
 
 == Methodology
 
-= Datasets
+= GoEmotions Dataset
 
-== Motivation for Dataset Selection
+Google-research's `goemotions` dataset contains 58k samples with a true/false indicator over each emotion from a fixed set of 27 cases, in addition to a "Neutral" label @demszky2020goemotions. The dataset originated from Reddit comments, labelled manually for the highest quality. We picked it because of its relatively large size and reasonable coverage of the emotional spectrum. In addition, it has a simple structure and intuitive labelling. More precisely, we used the Huggingface version for all our tasks, because it contains the canonical _train-test-validate_ split, allowing us to compare classification results with publicly available SOTA models.
+
+// TODO insert classifier comparison to the SOTA classifiers and link as bib citation in the comparison table
+
+Moreover, since it was developed as a training reference for emotion classification models, we expect it to contain enough information to encode nuances in meaning, which a pre-trained text embedding model can learn. We do not verify this claim; we assume the dataset induces sufficient coverage of emotion in English writing, and use it for all our experiments. We do not verify these claims, but we expect the trends identified in this work to hold at a larger scale, even with better quality data.
 
 == Exploration
 
@@ -89,13 +91,17 @@
 
 == Meaning Preservation Performance
 
-= Discussion
+= Evaluation
+
+// TODO include limitations
+// The dataset is in the English language, comes from Reddit
+// each LLM has a different pretraining dataset - Data Leakage?
 
 = Conclusion
 
 
 
-
+#bibliography("sources.bib")
 
 
 #pagebreak()
