@@ -18,5 +18,11 @@ Installation of `uv` is recommended but not necessary. People wishing to use env
 
 ## LLMs for Finetuning 
 
+We picked models of different size for finetuning.
+
+```shell
+git clone https://huggingface.co/Qwen/Qwen2.5-3B ./models/
+git clone https://huggingface.co/mistralai/Mistral-7B-v0.3 ./models/
+```
 
 ## Commercial Models
