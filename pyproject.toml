@@ -16,6 +16,7 @@ dependencies = [
     "scikit-learn>=1.8.0",
     "torch>=2.11.0",
     "transformers>=5.5.4",
+    "openai>=2.32.0",
 ]
 
 [dependency-groups]
