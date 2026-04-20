@@ -1,0 +1,1 @@
+hf://datasets/google-research-datasets/go_emotions/raw/train-00000-of-00001.parquet
