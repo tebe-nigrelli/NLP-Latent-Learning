@@ -20,15 +20,22 @@ from pathlib import Path
 
 def load_goemotions(
     csv_path: str = "../data/goemotions.csv",
+    min_votes: int = 2,
+    keep_id: bool = False,
 ) -> tuple[pd.DataFrame, list[str]]:
     """
-    Load the raw GoEmotions dataset from a local CSV if it exists.
-    If not, download it from Hugging Face and save the raw version as CSV.
+    Load raw GoEmotions, then convert it to a simplified comment-level dataset.
 
-    Preprocessing is always applied after loading.
+    Raw format:
+      - one row = one annotator's labels for one comment
+
+    Simplified format produced here:
+      - one row = one comment
+      - label = 1 only if at least `min_votes` annotators selected it
+      - comments with no surviving labels are dropped
 
     Returns:
-        df: preprocessed dataframe
+        df: simplified dataframe
         label_cols: list of label columns
     """
     csv_path = Path(csv_path)
@@ -43,30 +50,53 @@ def load_goemotions(
         )
         df.to_csv(csv_path, index=False)
 
-    # Preprocess every time
-    df = df.drop(
-        columns=[
-            "id",
-            "author",
-            "subreddit",
-            "link_id",
-            "parent_id",
-            "created_utc",
-            "rater_id",
-            "example_very_unclear",
-        ],
-        errors="ignore",
+    # Columns that are not emotion labels
+    meta_cols = {
+        "text",
+        "id",
+        "author",
+        "subreddit",
+        "link_id",
+        "parent_id",
+        "created_utc",
+        "rater_id",
+        "example_very_unclear",
+    }
+
+    if "id" not in df.columns or "text" not in df.columns:
+        raise ValueError("Expected raw GoEmotions columns 'id' and 'text'.")
+
+    # Emotion columns = everything except metadata
+    label_cols = [col for col in df.columns if col not in meta_cols]
+
+    # Keep only what we need before aggregation
+    df = df[["id", "text"] + label_cols].dropna(subset=["id", "text"]).copy()
+
+    # Make sure labels are numeric 0/1
+    df[label_cols] = df[label_cols].fillna(0).astype(int)
+
+    # Aggregate annotator rows -> one row per comment
+    agg = (
+        df.groupby("id", as_index=False, sort=False)
+          .agg({
+              "text": "first",
+              **{col: "sum" for col in label_cols},
+          })
     )
 
-    label_cols = [col for col in df.columns if col != "text"]
+    # Keep labels with at least `min_votes` votes
+    agg[label_cols] = (agg[label_cols] >= min_votes).astype(int)
 
-    df = (
-        df[["text"] + label_cols]
-        .dropna(subset=["text"])
-        .reset_index(drop=True)
-    )
+    # Drop comments with no remaining labels
+    agg = agg[agg[label_cols].sum(axis=1) > 0].reset_index(drop=True)
 
-    return df, label_cols
+    # Final column order
+    if keep_id:
+        agg = agg[["id", "text"] + label_cols]
+    else:
+        agg = agg[["text"] + label_cols]
+
+    return agg, label_cols
 
 class TrainEvalPrintCallback(TrainerCallback):
     def on_log(self, args, state, control, logs=None, **kwargs):
