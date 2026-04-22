@@ -22,6 +22,7 @@ dependencies = [
     "sentence-transformers>=5.4.1",
     "pip>=26.0.1",
     "bert-score>=0.3.13",
+    "nrclex>=4.1.0",
 ]
 
 [dependency-groups]

@@ -1604,6 +1604,7 @@ dependencies = [
     { name = "jupyter" },
     { name = "matplotlib" },
     { name = "nltk" },
+    { name = "nrclex" },
     { name = "openai" },
     { name = "pandas" },
     { name = "peft" },
@@ -1630,6 +1631,7 @@ requires-dist = [
     { name = "jupyter", specifier = ">=1.1.1" },
     { name = "matplotlib", specifier = ">=3.10.8" },
     { name = "nltk", specifier = ">=3.9.4" },
+    { name = "nrclex", specifier = ">=4.1.0" },
     { name = "openai", specifier = ">=2.32.0" },
     { name = "pandas", specifier = ">=3.0.2" },
     { name = "peft", specifier = ">=0.19.0" },
@@ -1685,6 +1687,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/54/d2/92fa3243712b9a3e8bafaf60aac366da1cada3639ca767ff4b5b3654ec28/notebook_shim-0.2.4.tar.gz", hash = "sha256:b4b2cfa1b65d98307ca24361f5b30fe785b53c3fd07b7a47e89acb5e6ac638cb", size = 13167, upload-time = "2024-02-14T23:35:18.353Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f9/33/bd5b9137445ea4b680023eb0469b2bb969d61303dedb2aac6560ff3d14a1/notebook_shim-0.2.4-py3-none-any.whl", hash = "sha256:411a5be4e9dc882a074ccbcae671eda64cceb068767e9a3419096986560e1cef", size = 13307, upload-time = "2024-02-14T23:35:16.286Z" },
+]
+
+[[package]]
+name = "nrclex"
+version = "4.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "textblob" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1e/a6/7218aacd34b4f7b426df240d3d4d67bc35ae5ec9a25f58bf20b1bb871fb3/nrclex-4.1.0.tar.gz", hash = "sha256:0fdf04b0b59bf48d8006ac3f96bfda9bfe55a2a31300326fe345ecd35b6ba4a2", size = 44136, upload-time = "2026-03-03T21:54:45.295Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2d/15/339ce55f38f9a4309a9db6600cdce878e1d45d5cc1d04e869fa720a8b2fa/nrclex-4.1.0-py3-none-any.whl", hash = "sha256:61d68d09cd6cddf7f2c4ad12d2b5ea13d376a75bf38c7f96ff306e112e96a386", size = 44465, upload-time = "2026-03-03T21:54:43.312Z" },
 ]
 
 [[package]]
@@ -2782,6 +2796,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/8a/11/965c6fd8e5cc254f1fe142d547387da17a8ebfd75a3455f637c663fb38a0/terminado-0.18.1.tar.gz", hash = "sha256:de09f2c4b85de4765f7714688fff57d3e75bad1f909b589fde880460c753fd2e", size = 32701, upload-time = "2024-03-12T14:34:39.026Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/6a/9e/2064975477fdc887e47ad42157e214526dcad8f317a948dee17e1659a62f/terminado-0.18.1-py3-none-any.whl", hash = "sha256:a4468e1b37bb318f8a86514f65814e1afc977cf29b3992a4500d9dd305dcceb0", size = 14154, upload-time = "2024-03-12T14:34:36.569Z" },
+]
+
+[[package]]
+name = "textblob"
+version = "0.20.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "nltk" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8b/c0/b7f426679211e965f8bf6b65e5eafeda51842502a6ae989b9616895d5fb5/textblob-0.20.0.tar.gz", hash = "sha256:ae9bef3a16cecb4aae3e995cc8c6fe98a9d2a6ffdd58990dcd68e817e8d66b9e", size = 639377, upload-time = "2026-04-01T13:50:20.975Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b9/6e/d487f271c30700354f55b5e56339f38942ab3cb9b6f1464288e252ae3fef/textblob-0.20.0-py3-none-any.whl", hash = "sha256:f32e5240a17a98a8d026cdf7add8f5e0c7d4f1f2e91dad77bc9493e5ab3c6bd5", size = 624962, upload-time = "2026-04-01T13:50:19.423Z" },
 ]
 
 [[package]]
