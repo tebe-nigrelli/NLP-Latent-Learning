@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from datasets import Dataset
+from datasets import Dataset, load_dataset, load_from_disk
 import torch
 from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training
 from sklearn.metrics import f1_score, accuracy_score
@@ -18,85 +18,62 @@ from sklearn.model_selection import train_test_split
 from pathlib import Path
 
 
-def load_goemotions(
-    csv_path: str = "../data/goemotions.csv",
-    min_votes: int = 2,
-    keep_id: bool = False,
-) -> tuple[pd.DataFrame, list[str]]:
-    """
-    Load raw GoEmotions, then convert it to a simplified comment-level dataset.
+GO_EMOTIONS_REPO = "google-research-datasets/go_emotions"
 
-    Raw format:
-      - one row = one annotator's labels for one comment
+DATA_DIR = Path("../data")
+GOEMOTIONS_DIR = DATA_DIR / "goemotions_simplified"
+HF_CACHE_DIR = DATA_DIR / "huggingface_cache"
 
-    Simplified format produced here:
-      - one row = one comment
-      - label = 1 only if at least `min_votes` annotators selected it
-      - comments with no surviving labels are dropped
+def parse_label_ids(label_value) -> list[int]:
+    if label_value is None:
+        return []
+    if isinstance(label_value, str):
+        text = label_value.strip()
+        if not text:
+            return []
+        if text.startswith("[") and text.endswith("]"):
+            text = text[1:-1]
+        return [int(x.strip()) for x in text.split(",") if x.strip()]
+    if isinstance(label_value, np.ndarray):
+        return [int(x) for x in label_value.tolist()]
+    if isinstance(label_value, (list, tuple, set)):
+        return [int(x) for x in label_value]
+    return [int(label_value)]
 
-    Returns:
-        df: simplified dataframe
-        label_cols: list of label columns
-    """
-    csv_path = Path(csv_path)
-    csv_path.parent.mkdir(parents=True, exist_ok=True)
+def load_goemotions_dataset():
+    if GOEMOTIONS_DIR.exists():
+        return load_from_disk(str(GOEMOTIONS_DIR))
 
-    # Load raw data, or download and cache it as raw CSV
-    if csv_path.exists():
-        df = pd.read_csv(csv_path)
-    else:
-        df = pd.read_parquet(
-            "hf://datasets/google-research-datasets/go_emotions/raw/train-00000-of-00001.parquet"
-        )
-        df.to_csv(csv_path, index=False)
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    HF_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Columns that are not emotion labels
-    meta_cols = {
-        "text",
-        "id",
-        "author",
-        "subreddit",
-        "link_id",
-        "parent_id",
-        "created_utc",
-        "rater_id",
-        "example_very_unclear",
-    }
-
-    if "id" not in df.columns or "text" not in df.columns:
-        raise ValueError("Expected raw GoEmotions columns 'id' and 'text'.")
-
-    # Emotion columns = everything except metadata
-    label_cols = [col for col in df.columns if col not in meta_cols]
-
-    # Keep only what we need before aggregation
-    df = df[["id", "text"] + label_cols].dropna(subset=["id", "text"]).copy()
-
-    # Make sure labels are numeric 0/1
-    df[label_cols] = df[label_cols].fillna(0).astype(int)
-
-    # Aggregate annotator rows -> one row per comment
-    agg = (
-        df.groupby("id", as_index=False, sort=False)
-          .agg({
-              "text": "first",
-              **{col: "sum" for col in label_cols},
-          })
+    ds = load_dataset(
+        GO_EMOTIONS_REPO,
+        "simplified",
+        cache_dir=str(HF_CACHE_DIR),
     )
+    ds.save_to_disk(str(GOEMOTIONS_DIR))
+    return ds
 
-    # Keep labels with at least `min_votes` votes
-    agg[label_cols] = (agg[label_cols] >= min_votes).astype(int)
+def load_and_split_goemotions():
+    ds = load_goemotions_dataset()
+    label_cols = list(ds["train"].features["labels"].feature.names)
 
-    # Drop comments with no remaining labels
-    agg = agg[agg[label_cols].sum(axis=1) > 0].reset_index(drop=True)
+    def split_to_df(split_name):
+        out = ds[split_name].to_pandas().copy()
+        out["labels"] = out["labels"].apply(parse_label_ids)
 
-    # Final column order
-    if keep_id:
-        agg = agg[["id", "text"] + label_cols]
-    else:
-        agg = agg[["text"] + label_cols]
+        for i, label in enumerate(label_cols):
+            out[label] = out["labels"].apply(lambda xs, i=i: int(i in xs))
 
-    return agg, label_cols
+        out["split"] = split_name
+        return out
+
+    train_df = split_to_df("train")
+    val_df = split_to_df("validation")
+    test_df = split_to_df("test")
+    df = pd.concat([train_df, val_df, test_df], ignore_index=True)
+    return df, label_cols, train_df, val_df, test_df
 
 class TrainEvalPrintCallback(TrainerCallback):
     def on_log(self, args, state, control, logs=None, **kwargs):
