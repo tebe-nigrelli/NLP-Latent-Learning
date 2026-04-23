@@ -4,7 +4,12 @@ import matplotlib.pyplot as plt
 from datasets import Dataset, load_dataset, load_from_disk
 import torch
 from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training
-from sklearn.metrics import f1_score, accuracy_score
+from sklearn.metrics import (
+    f1_score,
+    accuracy_score,
+    precision_score,
+    recall_score,
+)
 from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
@@ -91,7 +96,14 @@ class TrainEvalPrintCallback(TrainerCallback):
                 f"epoch={state.epoch:.4f} "
                 f"loss={metrics.get('eval_loss', float('nan')):.4f} "
                 f"macro_f1={metrics.get('eval_macro_f1', float('nan')):.4f} "
-                f"f1={metrics.get('eval_f1', float('nan')):.4f} "
+                f"micro_f1={metrics.get('eval_micro_f1', float('nan')):.4f} "
+                f"weighted_f1={metrics.get('eval_weighted_f1', float('nan')):.4f} "
+                f"macro_precision={metrics.get('eval_macro_precision', float('nan')):.4f} "
+                f"micro_precision={metrics.get('eval_micro_precision', float('nan')):.4f} "
+                f"weighted_precision={metrics.get('eval_weighted_precision', float('nan')):.4f} "
+                f"macro_recall={metrics.get('eval_macro_recall', float('nan')):.4f} "
+                f"micro_recall={metrics.get('eval_micro_recall', float('nan')):.4f} "
+                f"weighted_recall={metrics.get('eval_weighted_recall', float('nan')):.4f} "
                 f"accuracy={metrics.get('eval_accuracy', float('nan')):.4f}"
             )
         
@@ -187,8 +199,18 @@ def finetune_emotion_classifier(
 
         return {
             "macro_f1": f1_score(labels, preds, average="macro", zero_division=0),
-            "f1": f1_score(labels, preds, average="micro", zero_division=0),
-            "accuracy": accuracy_score(labels, preds),
+            "micro_f1": f1_score(labels, preds, average="micro", zero_division=0),
+            "weighted_f1": f1_score(labels, preds, average="weighted", zero_division=0),
+
+            "macro_precision": precision_score(labels, preds, average="macro", zero_division=0),
+            "micro_precision": precision_score(labels, preds, average="micro", zero_division=0),
+            "weighted_precision": precision_score(labels, preds, average="weighted", zero_division=0),
+
+            "macro_recall": recall_score(labels, preds, average="macro", zero_division=0),
+            "micro_recall": recall_score(labels, preds, average="micro", zero_division=0),
+            "weighted_recall": recall_score(labels, preds, average="weighted", zero_division=0),
+
+            "accuracy": accuracy_score(labels, preds),  # subset accuracy in multilabel
         }
 
     args = TrainingArguments(
@@ -263,7 +285,17 @@ def evaluate_emotion_classifier(
 
     return {
         "macro_f1": f1_score(labels, preds, average="macro", zero_division=0),
-        "f1": f1_score(labels, preds, average="micro", zero_division=0),
+        "micro_f1": f1_score(labels, preds, average="micro", zero_division=0),
+        "weighted_f1": f1_score(labels, preds, average="weighted", zero_division=0),
+
+        "macro_precision": precision_score(labels, preds, average="macro", zero_division=0),
+        "micro_precision": precision_score(labels, preds, average="micro", zero_division=0),
+        "weighted_precision": precision_score(labels, preds, average="weighted", zero_division=0),
+
+        "macro_recall": recall_score(labels, preds, average="macro", zero_division=0),
+        "micro_recall": recall_score(labels, preds, average="micro", zero_division=0),
+        "weighted_recall": recall_score(labels, preds, average="weighted", zero_division=0),
+
         "accuracy": accuracy_score(labels, preds),
         "probs": probs,
         "preds": preds,
