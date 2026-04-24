@@ -308,38 +308,54 @@ def infer_emotions(
     label_cols: list[str],
     max_length: int = 128,
     threshold: float = 0.5,
+    batch_size: int = 8,
 ):
     tokenizer = trainer.data_collator.tokenizer
     model = trainer.model
     model.eval()
-    model.config.use_cache = True
 
     device = next(model.parameters()).device
 
-    inputs = tokenizer(
-        texts,
-        truncation=True,
-        padding=True,
-        max_length=max_length,
-        return_tensors="pt",
-    )
-    inputs = {k: v.to(device) for k, v in inputs.items()}
+    old_use_cache = getattr(model.config, "use_cache", False)
+    model.config.use_cache = False
 
-    with torch.inference_mode():
-        logits = model(**inputs).logits
-        probs = torch.sigmoid(logits).cpu().numpy()
+    all_probs = []
 
-    preds = (probs >= threshold).astype(int)
+    try:
+        with torch.inference_mode():
+            for start in range(0, len(texts), batch_size):
+                batch_texts = texts[start:start + batch_size]
 
-    return [
-        {
-            "text": text,
-            "scores": {label: float(prob) for label, prob in zip(label_cols, prob_row)},
-            "labels": [label for label, bit in zip(label_cols, pred_row) if bit == 1],
-        }
-        for text, prob_row, pred_row in zip(texts, probs, preds)
-    ]
-    
+                inputs = tokenizer(
+                    batch_texts,
+                    truncation=True,
+                    padding=True,
+                    max_length=max_length,
+                    return_tensors="pt",
+                )
+                inputs = {k: v.to(device) for k, v in inputs.items()}
+
+                logits = model(**inputs).logits
+                probs = torch.sigmoid(logits).cpu().float().numpy()
+                all_probs.append(probs)
+
+                del inputs, logits
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+
+        probs = np.vstack(all_probs)
+        preds = (probs >= threshold).astype(int)
+
+        return [
+            {
+                "text": text,
+                "scores": {label: float(prob) for label, prob in zip(label_cols, prob_row)},
+                "labels": [label for label, bit in zip(label_cols, pred_row) if bit == 1],
+            }
+            for text, prob_row, pred_row in zip(texts, probs, preds)
+        ]
+    finally:
+        model.config.use_cache = old_use_cache  
     
 def save_loss_plot(
     trainer,
