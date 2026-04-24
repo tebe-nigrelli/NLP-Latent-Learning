@@ -71,6 +71,41 @@ Moreover, since it was developed as a training reference for emotion classificat
 
 == Exploration
 
+Among all the phrases present in the dataset, the label that appears most times is "neutral" with 17772 samples, followed by "admiration" with 5122 samples, while the least common is "grief" with 96 samples.
+In the plot A of figure @fig:plots_EDA, it is shown the distribution of the labels in the dataset (removing the lable neutral in order to have a more readible plot).
+
+
+
+Among all the 54263 input texts, the 45446 of them (around 83.75%) of them is one-hot-encoded (only 1 label), while only one input has 5 labels (highest number of labels for a single input). The distribution of the number of labels per input is shown in the plot B of figure @fig:plots_EDA with logarithmic scale.
+The input with 5 labels is "Yeah I probably would've started crying on the spot. Loud, sudden and especially shrill noises are extremely \*"cringey"\* and uncomfortable and stressful" and the associated labels are "curiosity", "disapproval", "embarrassment", "joy", "relief".
+
+
+The number of words between the input text ranges from 1 to 33. In particular, the distribution is almost symmetrical as the mean is 12.8 and the median is 12.0 with a standard deviation of 6.70. The first and third quartiles are 7.0 and 18.0 respectively, confirming the relative symmetry of the distribution. The distribution of the number of words in the text column is shown in plot C of figure @fig:plots_EDA.
+
+
+Regarding the number of characters in each input, the distribution is concentrated mostly between 2 and 180 and is almost uniform; however, there are some outliers with a high number of characters (up to 703). 
+The distribution is slightly left-skewed as the mean is 68.3 and the median is 65.0 with a standard deviation of 36.7.
+
+The plot of the distribution is visible in plot D of figure @fig:plots_EDA, where the logarithmic scale is used to make the plot more readable.
+The four inputs with the highest number of characters are the following are the following:
+ - "Communism naturally results in dictatorship. When you centralize power, you invite the power-hungry. Every morally-motivated communist seems to think they're immune to the bullets of power-hungry totalitarians." with 211 characters and label "neutral";
+
+ - "here you go: |Games|Home|Away|Team|vs W-L 18-19| |:-|:-|:-|:-|-:| |1|1|0|Golden State|0-1| |2|1|1|Houston|0-0| |2|1|1|Oklahoma City|0-0| |2|0|2|Toronto|1-1| |2|1|1|Milwaukee|0-1| |3|1|2|Indiana|0-1| |2|1|1|Philadelphia|1-1| |2|1|1|Boston|1-0| |1|1|0|Minnesota|0-1| |2|1|1|New Orleans|0-0| |2|1|1|Memphis|0-0| |1|1|0|Dallas|0-1| |1|0|1|Miami|2-1| |3|2|1|Brooklyn|0-0| |2|1|1|Charlotte|0-2| |2|0|2|Detroit|1-1| |2|1|1|Washington|1-1| |2|1|1|New York|2-0| |2|1|1|Cleveland|1-0| |4|2|2|Atlanta|0-0| |1|1|0|Chicago|2-1|" with 514 characters and label "neutral";
+
+ - "For your kindness to mobile users I give a platinum ⠀⠀⠀⠀⠀⣤⣶⣶⡶⠦⠴⠶⠶⠶⠶⡶⠶⠦⠶⠶⠶⠶⠶⠶⠶⣄⠀⠀⠀⠀ ⠀⠀⠀⠀⠀⣿⣀⣀⣀⣀⠀⢀⣤⠄⠀⠀⣶⢤⣄⠀⠀⠀⣤⣤⣄⣿⠀⠀⠀⠀ ⠀⠀⠀⠀⠀⠿⣿⣿⣿⣿⡷⠋⠁⠀⠀⠀⠙⠢⠙⠻⣿⡿⠿⠿⠫⠋⠀⠀⠀⠀ ⠀⠀⠀⠀⠀⠀⢀⣤⠞⠉⠀⠀⠀⠀⣴⣶⣄⠀⠀⠀⢀⣕⠦⣀⠀⠀⠀⠀⠀⠀ ⠀⠀⠀⢀⣤⠾⠋⠁⠀⠀⠀⠀⢀⣼⣿⠟⢿⣆⠀⢠⡟⠉⠉⠊⠳⢤⣀⠀⠀⠀ ⠀⣠⡾⠛⠁⠀⠀⠀⠀⠀⢀⣀⣾⣿⠃⠀⡀⠹⣧⣘⠀⠀⠀⠀⠀⠀⠉⠳⢤⡀ ⠀⣿⡀⠀⠀⢠⣶⣶⣿⣿⣿⣿⡿⠁⠀⣼⠃⠀⢹⣿⣿⣿⣶⣶⣤⠀⠀⠀⢰⣷ ⠀⢿⣇⠀⠀⠈⠻⡟⠛⠋⠉⠉⠀⠀⡼⠃⠀⢠⣿⠋⠉⠉⠛⠛⠋⠀⢀⢀⣿⡏ ⠀⠘⣿⡄⠀⠀⠀⠈⠢⡀⠀⠀⠀⡼⠁⠀⢠⣿⠇⠀⠀⡀⠀⠀⠀⠀⡜⣼⡿⠀ ⠀⠀⢻⣷⠀⠀⠀⠀⠀⢸⡄⠀⢰⠃⠀⠀⣾⡟⠀⠀⠸⡇⠀⠀⠀⢰⢧⣿⠃⠀ ⠀⠀⠘⣿⣇⠀⠀⠀⠀⣿⠇⠀⠇⠀⠀⣼⠟⠀⠀⠀⠀⣇⠀⠀⢀⡟⣾⡟⠀⠀ ⠀⠀⠀⢹⣿⡄⠀⠀⠀⣿⠀⣀⣠⠴⠚⠛⠶⣤⣀⠀⠀⢻⠀⢀⡾⣹⣿⠃⠀⠀ ⠀⠀⠀⠀⢿⣷⠀⠀⠀⠙⠊⠁⠀⢠⡆⠀⠀⠀⠉⠛⠓⠋⠀⠸⢣⣿⠏⠀⠀⠀ ⠀⠀⠀⠀⠘⣿⣷⣦⣤⣤⣄⣀⣀⣿⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣾⡟⠀⠀⠀⠀ ⠀⠀⠀⠀⠀⢹⣿⣿⣿⣻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠁⠀⠀⠀⠀ ⠀⠀⠀⠀⠀⠀⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠃ " 
+ with 542 characters and label "neutral";
+
+ - "This person is the smartest person to play town of salem literally 999999999999999999999999999999999999999999999999999999999999999999999999999999999999999991000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001234567898765432345676543345678987654345678909876543234567898765432345678909876543234567898765432345678987654323456787654345676543456543456434543434343434323456765434567654323454323456543345678987654323456789876565656565656565656565656565454545654565454323456765432345678765456 IQ 
+ with 703 characters and label "admiration".
+
+
+
+#figure(
+  image("/0. Exploratory/plots/image4.png", width: 100%),
+  caption: [Plot A: Distribution of the lables in the dataset (removing the label "neutral"); Plot B: Distribution of the number of labels per input (in logarithmic scale); Plot C: Distribution of the number of words in the inpouts; Plot D: Distribution of the number of characters in the text column (in logarithmic scale).],
+) <fig:plots_EDA>
+
+
 = Architecture
 
 == Backbone Model
