@@ -1,7 +1,12 @@
 import numpy as np
 import pandas as pd
+import json
 import matplotlib.pyplot as plt
 from datasets import Dataset, load_dataset, load_from_disk
+import torch
+import platform
+import sys
+from importlib.metadata import version, PackageNotFoundError
 import torch
 from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training
 from sklearn.metrics import (
@@ -15,6 +20,7 @@ from transformers import (
     AutoTokenizer,
     BitsAndBytesConfig,
     DataCollatorWithPadding,
+    EarlyStoppingCallback,
     Trainer,
     TrainingArguments,
     TrainerCallback
@@ -80,6 +86,115 @@ def load_and_split_goemotions():
     df = pd.concat([train_df, val_df, test_df], ignore_index=True)
     return df, label_cols, train_df, val_df, test_df
 
+
+def _pkg_version(pkg_name: str):
+    try:
+        return version(pkg_name)
+    except PackageNotFoundError:
+        return None
+
+
+def _get_model_config(model):
+    if hasattr(model, "config"):
+        return model.config
+    if hasattr(model, "base_model") and hasattr(model.base_model, "config"):
+        return model.base_model.config
+    if hasattr(model, "base_model") and hasattr(model.base_model, "model") and hasattr(model.base_model.model, "config"):
+        return model.base_model.model.config
+    return None
+
+
+def _extract_peft_info(model):
+    if not hasattr(model, "peft_config") or not model.peft_config:
+        return None
+
+    cfg = next(iter(model.peft_config.values()))
+    return {
+        "task_type": str(getattr(cfg, "task_type", None)),
+        "r": getattr(cfg, "r", None),
+        "lora_alpha": getattr(cfg, "lora_alpha", None),
+        "lora_dropout": getattr(cfg, "lora_dropout", None),
+        "bias": getattr(cfg, "bias", None),
+        "target_modules": getattr(cfg, "target_modules", None),
+        "modules_to_save": getattr(cfg, "modules_to_save", None),
+    }
+
+def _save_run_config(
+    trainer,
+    output_dir: str | Path,
+    *,
+    model_name: str,
+    text_col: str,
+    label_cols: list[str],
+    max_length: int,
+    epochs: int,
+    batch_size: int,
+    lr: float,
+    use_4bit: bool,
+    seed: int,
+    threshold: float = 0.5,
+):
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    args = trainer.args
+    model_cfg = _get_model_config(trainer.model)
+
+    run_config = {
+        "model_name": model_name,
+        "text_col": text_col,
+        "label_cols": label_cols,
+        "n_labels": len(label_cols),
+        "max_length": max_length,
+        "epochs": epochs,
+        "batch_size": batch_size,
+        "learning_rate": lr,
+        "lr_scheduler_type": str(getattr(args, "lr_scheduler_type", None)),
+        "warmup_ratio": getattr(args, "warmup_ratio", None),
+        "weight_decay": getattr(args, "weight_decay", None),
+        "eval_steps": getattr(args, "eval_steps", None),
+        "save_steps": getattr(args, "save_steps", None),
+        "logging_steps": getattr(args, "logging_steps", None),
+        "gradient_checkpointing": getattr(args, "gradient_checkpointing", None),
+        "fp16": getattr(args, "fp16", None),
+        "bf16": getattr(args, "bf16", None),
+        "optim": getattr(args, "optim", None),
+        "seed": getattr(args, "seed", seed),
+        "data_seed": getattr(args, "data_seed", seed),
+        "metric_for_best_model": getattr(args, "metric_for_best_model", None),
+        "greater_is_better": getattr(args, "greater_is_better", None),
+        "threshold": threshold,
+        "use_4bit": use_4bit,
+        "problem_type": getattr(model_cfg, "problem_type", None) if model_cfg else None,
+        "base_model_name_or_path": getattr(model_cfg, "_name_or_path", None) if model_cfg else None,
+        "id2label": getattr(model_cfg, "id2label", None) if model_cfg else None,
+        "label2id": getattr(model_cfg, "label2id", None) if model_cfg else None,
+        "train_size": len(trainer.train_dataset) if trainer.train_dataset is not None else None,
+        "eval_size": len(trainer.eval_dataset) if trainer.eval_dataset is not None else None,
+        "best_metric": getattr(trainer.state, "best_metric", None),
+        "best_model_checkpoint": getattr(trainer.state, "best_model_checkpoint", None),
+        "global_step": getattr(trainer.state, "global_step", None),
+        "python_version": sys.version,
+        "platform": platform.platform(),
+        "torch_version": torch.__version__,
+        "transformers_version": _pkg_version("transformers"),
+        "datasets_version": _pkg_version("datasets"),
+        "peft_version": _pkg_version("peft"),
+        "bitsandbytes_version": _pkg_version("bitsandbytes"),
+        "sklearn_version": _pkg_version("scikit-learn"),
+        "cuda_available": torch.cuda.is_available(),
+        "cuda_device_count": torch.cuda.device_count() if torch.cuda.is_available() else 0,
+        "cuda_device_name": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,
+        "peft": _extract_peft_info(trainer.model),
+    }
+
+    run_config_path = output_dir / "run_config.json"
+    with open(run_config_path, "w") as f:
+        json.dump(run_config, f, indent=2, default=str)
+
+    print(f"Saved run config to: {run_config_path}")
+    return run_config
+
 class TrainEvalPrintCallback(TrainerCallback):
     def on_log(self, args, state, control, logs=None, **kwargs):
         if logs and "loss" in logs:
@@ -117,8 +232,10 @@ def finetune_emotion_classifier(
     max_length: int = 128,
     epochs: int = 3,
     batch_size: int = 4,   # small batch
-    lr: float = 2e-4,
+    lr: float = 1e-4,
     use_4bit: bool = True,
+    seed: int = 42,
+    early_stopping_patience: int = 5,
 ):
     def to_ds(df: pd.DataFrame):
         x = df[[text_col] + label_cols].copy()
@@ -216,16 +333,18 @@ def finetune_emotion_classifier(
     args = TrainingArguments(
         output_dir=output_dir,
         learning_rate=lr,
+        lr_scheduler_type="linear",
         per_device_train_batch_size=batch_size,
         per_device_eval_batch_size=batch_size,
         num_train_epochs=epochs,
         weight_decay=0.01,
+        warmup_ratio=0.05,
         eval_strategy="steps",
-        eval_steps=500,
+        eval_steps=200,
         save_strategy="steps",
-        save_steps=500,
+        save_steps=200,
         load_best_model_at_end=True,
-        metric_for_best_model="macro_f1",
+        metric_for_best_model="eval_macro_f1",
         greater_is_better=True,
         logging_strategy="steps",
         logging_steps=20,
@@ -235,6 +354,8 @@ def finetune_emotion_classifier(
         fp16=torch.cuda.is_available() and not use_bf16,
         bf16=use_bf16,
         optim="paged_adamw_32bit" if use_4bit else "adamw_torch",
+        seed=seed,
+        data_seed=seed,
     )
 
     trainer = Trainer(
@@ -244,7 +365,13 @@ def finetune_emotion_classifier(
         eval_dataset=val_ds,
         data_collator=collator,
         compute_metrics=compute_metrics,
-        callbacks=[TrainEvalPrintCallback()],
+        callbacks=[
+            TrainEvalPrintCallback(),
+            EarlyStoppingCallback(
+                early_stopping_patience=early_stopping_patience,
+                early_stopping_threshold=0.0,
+            ),
+        ],
     )
 
     trainer.train()
@@ -257,6 +384,22 @@ def finetune_emotion_classifier(
 
     trainer.save_model(output_dir)
     tokenizer.save_pretrained(output_dir)
+
+    _save_run_config(
+        trainer,
+        output_dir=output_dir,
+        model_name=model_name,
+        text_col=text_col,
+        label_cols=label_cols,
+        max_length=max_length,
+        epochs=epochs,
+        batch_size=batch_size,
+        lr=lr,
+        use_4bit=use_4bit,
+        seed=seed,
+        threshold=0.5,
+    )
+
     return trainer, tokenizer
 
 def evaluate_emotion_classifier(
