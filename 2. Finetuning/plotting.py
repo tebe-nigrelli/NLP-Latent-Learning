@@ -1,5 +1,6 @@
 from pathlib import Path
 import json
+import textwrap
 from importlib.metadata import version, PackageNotFoundError
 
 import matplotlib.pyplot as plt
@@ -458,3 +459,76 @@ def save_training_metric_plots(
 
     print(f"Saved run summary JSON to: {run_summary_path}")
     return history_df
+
+
+def plot_emotion_heatmap(
+    results: list[dict],
+    n: int = 50,
+    out_path: str | Path = "emotion_scores_heatmap.png",
+    wrap_width: int = 24,
+    cmap: str = "viridis_r",
+    dpi: int = 220,
+    show: bool = True,
+):
+    if not results:
+        raise ValueError("`results` is empty.")
+
+    subset = results[:n]
+    if not subset:
+        raise ValueError("No rows available after applying `n`.")
+
+    # Preserve emotion order from the first result
+    score_cols = list(subset[0]["scores"].keys())
+
+    rows = []
+    for item in subset:
+        if "text" not in item or "scores" not in item:
+            raise ValueError("Each item must contain 'text' and 'scores' keys.")
+        rows.append(
+            {
+                "text": str(item["text"]),
+                **{col: float(item["scores"][col]) for col in score_cols},
+            }
+        )
+
+    df = pd.DataFrame(rows)
+    heat = df[score_cols].astype(float)
+
+    row_labels = [textwrap.fill(t, width=wrap_width) for t in df["text"]]
+
+    n_rows, n_cols = heat.shape
+    fig_w = max(18, n_cols * 0.8)
+    fig_h = max(14, n_rows * 0.6)
+
+    fig, ax = plt.subplots(figsize=(fig_w, fig_h))
+
+    # Low values lighter, high values darker
+    im = ax.imshow(heat.values, aspect="auto", cmap=cmap)
+
+    # Column labels on top
+    ax.set_xticks(range(n_cols))
+    ax.set_xticklabels(score_cols, rotation=90, fontsize=16)
+    ax.tick_params(top=True, bottom=False, labeltop=True, labelbottom=False)
+
+    # Wrapped full phrases on rows
+    ax.set_yticks(range(n_rows))
+    ax.set_yticklabels(row_labels, fontsize=16)
+
+    ax.set_xlabel("Emotion scores", fontsize=18)
+    ax.set_ylabel("Input text", fontsize=18)
+    ax.set_title(f"Emotion Score Heatmap (n={len(subset)})", fontsize=22, pad=28)
+
+    # Narrow colorbar
+    cbar = fig.colorbar(im, ax=ax, fraction=0.025, pad=0.02)
+    cbar.ax.tick_params(labelsize=14)
+    plt.tight_layout()
+
+    out_path = str(out_path)
+    plt.savefig(out_path, dpi=dpi, bbox_inches="tight")
+
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+
+    return out_path
