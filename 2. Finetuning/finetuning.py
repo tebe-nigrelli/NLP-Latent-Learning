@@ -221,7 +221,29 @@ class TrainEvalPrintCallback(TrainerCallback):
                 f"weighted_recall={metrics.get('eval_weighted_recall', float('nan')):.4f} "
                 f"accuracy={metrics.get('eval_accuracy', float('nan')):.4f}"
             )
-        
+
+class WeightedMultilabelTrainer(Trainer):
+    def __init__(self, *args, pos_weight: torch.Tensor | None = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.pos_weight = pos_weight
+        self.model_accepts_loss_kwargs = False
+
+    def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
+        labels = inputs.pop("labels").float()
+        outputs = model(**inputs)
+        logits = outputs.logits
+
+        if self.pos_weight is None:
+            loss = torch.nn.functional.binary_cross_entropy_with_logits(logits, labels)
+        else:
+            loss = torch.nn.functional.binary_cross_entropy_with_logits(
+                logits,
+                labels,
+                pos_weight=self.pos_weight.to(logits.device),
+            )
+
+        return (loss, outputs) if return_outputs else loss
+
 def finetune_emotion_classifier(
     train_df: pd.DataFrame,
     val_df: pd.DataFrame,
@@ -231,11 +253,12 @@ def finetune_emotion_classifier(
     output_dir: str = "./emotion_lora",
     max_length: int = 128,
     epochs: int = 3,
-    batch_size: int = 4,   # small batch
+    batch_size: int = 4,
     lr: float = 1e-4,
     use_4bit: bool = True,
     seed: int = 42,
     early_stopping_patience: int = 5,
+    pos_weight_clip: float = 20.0,
 ):
     def to_ds(df: pd.DataFrame):
         x = df[[text_col] + label_cols].copy()
@@ -300,6 +323,17 @@ def finetune_emotion_classifier(
     )
     model = get_peft_model(model, peft_config)
 
+    # Compute multilabel positive-class weights from the training set:
+    # pos_weight[i] = (# negatives for label i) / (# positives for label i)
+    pos_counts = train_df[label_cols].sum(axis=0).to_numpy(dtype=np.float32)
+    neg_counts = (len(train_df) - pos_counts).astype(np.float32)
+
+    pos_weight = neg_counts / np.maximum(pos_counts, 1.0)
+    if pos_weight_clip is not None:
+        pos_weight = np.clip(pos_weight, 1.0, pos_weight_clip)
+
+    pos_weight = torch.tensor(pos_weight, dtype=torch.float32)
+
     def tokenize(batch):
         return tokenizer(batch[text_col], truncation=True, max_length=max_length)
 
@@ -358,13 +392,14 @@ def finetune_emotion_classifier(
         data_seed=seed,
     )
 
-    trainer = Trainer(
+    trainer = WeightedMultilabelTrainer(
         model=model,
         args=args,
         train_dataset=train_ds,
         eval_dataset=val_ds,
         data_collator=collator,
         compute_metrics=compute_metrics,
+        pos_weight=pos_weight,
         callbacks=[
             TrainEvalPrintCallback(),
             EarlyStoppingCallback(
@@ -376,7 +411,7 @@ def finetune_emotion_classifier(
 
     trainer.train()
 
-    # inference mode after training: faster than leaving training settings on
+    # inference mode after training
     if hasattr(trainer.model, "gradient_checkpointing_disable"):
         trainer.model.gradient_checkpointing_disable()
     trainer.model.config.use_cache = True
