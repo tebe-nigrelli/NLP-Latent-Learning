@@ -115,8 +115,17 @@ The four inputs with the highest number of characters are the following are the 
 = Evaluation
 
 == Metrics
+To evaluate our model, we employ two strategies: for emotion classification we use both a fine tuned model and four queried large language models; for translation and meaning preservation we use four large language models and a human poll.
+
+// TODO write in details the part about the fine-tuned model
+// TODO Write in details the part about the poll
+// TODO Check the precise size of dataset used for evaluation and the specific large language models employed 
 
 == Human-Guided LLM Annotation
+
+For emotion classification evaluation, we select a subset of the GoEmotions dataset and query four large language models via the OpenRouter API. Each model receives a specific prompt containing the original sentence from the dataset plus the full list of 28 GoEmotions labels, and is explicitly told to return a list of the emotions it thinks best express the meaning of the sentence. The predicted emotions are then extracted deterministically through regex over the full response in case structured line is malformed.
+
+For translation evaluation, we also select a subset of the GoEmotions dataset and query the same four language models. Each model receives a specific prompt containing the original sentence from the dataset plus a target emotion and is instructed to rewrite the sentence so that it expresses the target emotion while preserving the original semantic meaning. The final translated sentences are collected and used both for evaluation against our model and for the human poll described above.
 
 == Ablations
 
