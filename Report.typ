@@ -3,7 +3,7 @@
   ],
 )
 
-#set heading(numbering: "1.a.")
+#set heading(numbering: "1")
 
 #set page(
   paper: "a4",
@@ -14,6 +14,7 @@
     bottom: 5em,
   ),
   numbering: "1",
+  columns: 2
 )
 
 #align(center)[
@@ -53,15 +54,11 @@
   ]
 ]
 
-= Introduction
+= Motivation
 
 // TODO introduce SOTA as keyword since it is used later
 
-== Motivation and Task Relevance
-
-== Methodology
-
-= GoEmotions Dataset
+= Dataset
 
 Google-research's `goemotions` dataset contains 58k samples with a true/false indicator over each emotion from a fixed set of 27 cases, in addition to a "Neutral" label @demszky2020goemotions. The dataset originated from Reddit comments, labelled manually for the highest quality. We picked it because of its relatively large size and reasonable coverage of the emotional spectrum. In addition, it has a simple structure and intuitive labelling. More precisely, we used the Huggingface version for all our tasks, because it contains the canonical _train-test-validate_ split, allowing us to compare classification results with publicly available SOTA models.
 
@@ -69,9 +66,7 @@ Google-research's `goemotions` dataset contains 58k samples with a true/false in
 
 Moreover, since it was developed as a training reference for emotion classification models, we expect it to contain enough information to encode nuances in meaning, which a pre-trained text embedding model can learn. We do not verify this claim; we assume the dataset induces sufficient coverage of emotion in English writing, and use it for all our experiments. We do not verify these claims, but we expect the trends identified in this work to hold at a larger scale, even with better quality data.
 
-== Exploration
-
-Among all the phrases present in the dataset, the label that appears most times is "neutral" with 17772 samples, followed by "admiration" with 5122 samples, while the least common is "grief" with 96 samples.
+*Exploration* Among all the phrases present in the dataset, the label that appears most times is "neutral" with 17772 samples, followed by "admiration" with 5122 samples, while the least common is "grief" with 96 samples.
 In the plot A of figure @fig:plots_EDA, it is shown the distribution of the labels in the dataset (removing the lable neutral in order to have a more readible plot).
 
 
@@ -105,21 +100,25 @@ The four inputs with the highest number of characters are the following are the 
   caption: [Plot A: Distribution of the lables in the dataset (removing the label "neutral"); Plot B: Distribution of the number of labels per input (in logarithmic scale); Plot C: Distribution of the number of words in the inpouts; Plot D: Distribution of the number of characters in the text column (in logarithmic scale).],
 ) <fig:plots_EDA>
 
+= Model Architecture
 
-= Architecture
+// Backbone Model + VAE
 
-== Backbone Model
+*Inference*
 
-== VAE
-
-= Evaluation
-
-== Metrics
-To evaluate our model, we employ two strategies: for emotion classification we use both a fine tuned model and four queried large language models; for translation and meaning preservation we use four large language models and a human poll.
+*Metrics* To evaluate our model, we employ two strategies: for emotion classification we use both a fine tuned model and four queried large language models; for translation and meaning preservation we use four large language models and a human poll.
 
 // TODO write in details the part about the fine-tuned model
 // TODO Write in details the part about the poll
 // TODO Check the precise size of dataset used for evaluation and the specific large language models employed 
+
+= Classification Task
+
+*Evaluation*
+
+*Baseline*
+
+*Results and Ablations*
 
 == Human-Guided LLM Annotation
 
@@ -127,22 +126,21 @@ For emotion classification evaluation, we select a subset of the GoEmotions data
 
 For translation evaluation, we also select a subset of the GoEmotions dataset and query the same four language models. Each model receives a specific prompt containing the original sentence from the dataset plus a target emotion and is instructed to rewrite the sentence so that it expresses the target emotion while preserving the original semantic meaning. The final translated sentences are collected and used both for evaluation against our model and for the human poll described above.
 
-== Ablations
+= Translation
 
-= Results
+*Evaluation*
 
-== Emotion Translation Performance
+*Baseline*
 
-== Meaning Preservation Performance
+*Results and Ablations*
 
-= Evaluation
+= Discussion
+
+= Conclusion
 
 // TODO include limitations
 // The dataset is in the English language, comes from Reddit
 // each LLM has a different pretraining dataset - Data Leakage?
-
-= Conclusion
-
 
 #pagebreak()
 
@@ -150,6 +148,11 @@ For translation evaluation, we also select a subset of the GoEmotions dataset an
 
 
 #pagebreak()
+
+= Appendix
+
+
+= TO BE DELETED
 
 *What Meaning Preservation Verification Model we pick and why*
 
