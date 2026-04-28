@@ -485,7 +485,6 @@ def infer_emotions(
     trainer,
     label_cols: list[str],
     max_length: int = 128,
-    threshold: float = 0.5,
     batch_size: int = 8,
 ):
     tokenizer = trainer.data_collator.tokenizer
@@ -514,27 +513,23 @@ def infer_emotions(
                 inputs = {k: v.to(device) for k, v in inputs.items()}
 
                 logits = model(**inputs).logits
-                probs = torch.sigmoid(logits).cpu().float().numpy()
-                all_probs.append(probs)
+                probs = torch.sigmoid(logits)
 
-                del inputs, logits
+                all_probs.append(probs.cpu().float().numpy())
+
+                del inputs, logits, probs
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
 
         probs = np.vstack(all_probs)
-        preds = (probs >= threshold).astype(int)
 
-        return [
-            {
-                "text": text,
-                "scores": {label: float(prob) for label, prob in zip(label_cols, prob_row)},
-                "labels": [label for label, bit in zip(label_cols, pred_row) if bit == 1],
-            }
-            for text, prob_row, pred_row in zip(texts, probs, preds)
-        ]
+        return pd.DataFrame({
+            "text": texts,
+            **{label: probs[:, i] for i, label in enumerate(label_cols)}
+        })
     finally:
-        model.config.use_cache = old_use_cache  
-    
+        model.config.use_cache = old_use_cache
+
 def save_loss_plot(
     trainer,
     plot_path: str = "../output/finetune_loss.png",
