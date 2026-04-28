@@ -17,43 +17,48 @@
   columns: 2
 )
 
-#align(center)[
-  #title()
+#place(
+  top + center,
+  scope: "parent",
+  float: true,
+)[
+  #align(center)[
+    #title()
 
-  #grid(
-    columns: (1fr, 1fr, 1.1fr, 1fr, 1fr),
-    gutter: 1em,
-    align: center,
-    [*Tebe Nigrelli*], [*Federico Pezzoli*], [*Alessandro Reali*], [*Luca Ricci*], [*Ali Emre Senel*],
-  )
+    #grid(
+      columns: (1fr, 1fr, 1.1fr, 1fr, 1fr),
+      gutter: 1em,
+      align: center,
+      [*Tebe Nigrelli*], [*Federico Pezzoli*], [*Alessandro Reali*], [*Luca Ricci*], [*Ali Emre Senel*],
+    )
 
-    #line(length: 100%)
-  ]
+      #line(length: 100%)
+    ]
 
-// TODO insert abstract and conclusion into README
+  // TODO insert abstract and conclusion into README
 
-#align(center)[
-  #par(justify: true)[
-    1 Encoder-Decoder models based on the transformer can perform a wide range of tasks
-    by first mapping tokens to a sequence of encoder hidden states (embeddings), and then remapping them
-    autoregressively to a new sequence.
-    2 Without additional inductive biases, embedding spaces suffer from a
-    lack of interpretability, despite having a complete encoding of information.
-    3 We investigate whether such
-    embeddings can be refined and disentangled by a Variational Autoencoder (VAE).
-    4 To do so, we train the VAE
-    to reproduce the original sequence through an information bottleneck.
-    5 We use a factor-VAE architecture
-    to decorrelate the latent dimensions, which helps smooth the representation, and we include task-reserved
-    dimensions for performing emotion-translating tasks:
-    particularly, we use an attention pooling component
-    to learn a two-way mapping between some dimensions of the latents and the emotion labels, producing
-    an emotion-translating sequence-to-sequence model.
-    6 //results
-    7 // future implications
+  #align(center)[
+    #par(justify: true)[
+      1 Encoder-Decoder models based on the transformer can perform a wide range of tasks
+      by first mapping tokens to a sequence of encoder hidden states (embeddings), and then remapping them
+      autoregressively to a new sequence.
+      2 Without additional inductive biases, embedding spaces suffer from a
+      lack of interpretability, despite having a complete encoding of information.
+      3 We investigate whether such
+      embeddings can be refined and disentangled by a Variational Autoencoder (VAE).
+      4 To do so, we train the VAE
+      to reproduce the original sequence through an information bottleneck.
+      5 We use a factor-VAE architecture
+      to decorrelate the latent dimensions, which helps smooth the representation, and we include task-reserved
+      dimensions for performing emotion-translating tasks:
+      particularly, we use an attention pooling component
+      to learn a two-way mapping between some dimensions of the latents and the emotion labels, producing
+      an emotion-translating sequence-to-sequence model.
+      6 //results
+      7 // future implications
+    ]
   ]
 ]
-
 = Motivation
 
 // TODO introduce SOTA as keyword since it is used later
