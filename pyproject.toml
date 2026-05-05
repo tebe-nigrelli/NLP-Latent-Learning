@@ -1,7 +1,11 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "nlp-latent-learning"
 version = "0.1.0"
-description = "Add your description here"
+description = "Token-level T5 FactorVAE utilities for GoEmotions emotion translation experiments."
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
@@ -30,3 +34,6 @@ dev = [
     "ipykernel>=7.2.0",
     "seaborn>=0.13.2",
 ]
+
+[tool.setuptools.packages.find]
+where = ["src"]
