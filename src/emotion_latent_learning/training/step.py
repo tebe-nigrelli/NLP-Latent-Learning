@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from ..utils.common import *
 from ..evaluation.generation import compute_copy_loss_from_memory
-from .losses import cross_covariance_penalty, discriminator_loss, factorvae_tc_loss, residual_adversarial_loss, tc_latents_for_tc, transfer_strength_margin_loss, vector_adversarial_loss
+from .losses import cross_covariance_penalty, discriminator_loss, emotion_decoder_sensitivity_loss, factorvae_tc_loss, residual_adversarial_loss, tc_latents_for_tc, transfer_strength_margin_loss, vector_adversarial_loss
 from ..evaluation.metrics import multilabel_metrics
 from ..schemas import ExperimentContext, TrainingState
 from ..modeling.t5_utils import masked_mean, set_requires_grad
@@ -35,6 +35,7 @@ def train_one_epoch(
     epoch_sep = 0.0
     epoch_orth = 0.0
     epoch_transfer = 0.0
+    epoch_edit_sensitivity = 0.0
     epoch_disc = 0.0
     epoch_logits = []
     epoch_labels = []
@@ -117,6 +118,30 @@ def train_one_epoch(
             margin=ctx.loss_config.transfer_strength_margin,
         )
 
+        edit_sensitivity_loss = out.base_loss.new_zeros(())
+        if weights.get("edit_sensitivity_weight", 0.0) > 0.0:
+            zero_scalar = torch.zeros_like(out.vae.scalar_z)
+            with torch.no_grad():
+                null_pooled, _ = state.model.pooled_scalar_tensor_from_latent_parts(
+                    scalar_latents=zero_scalar,
+                    vector_latents=out.vae.vector_z.detach(),
+                    t5_encoder_sequence=out.t5_encoder_sequence.detach(),
+                    attention_mask=attention_mask,
+                )
+            _, _, decoder_memory_without_emotion = state.model.decode_from_latent_parts(
+                scalar_latents=zero_scalar,
+                vector_latents=out.vae.vector_z.detach(),
+                t5_encoder_sequence=out.t5_encoder_sequence.detach(),
+                pooled_scalar_tensor=null_pooled,
+                residual_scale=weights["residual_scale"],
+            )
+            edit_sensitivity_loss = emotion_decoder_sensitivity_loss(
+                decoder_memory=out.decoder_memory,
+                decoder_memory_without_emotion=decoder_memory_without_emotion,
+                attention_mask=attention_mask,
+                margin=ctx.loss_config.edit_sensitivity_margin,
+            )
+
         total_loss = (
             out.base_loss
             + (weights["tc_weight"] * tc_loss)
@@ -126,6 +151,7 @@ def train_one_epoch(
             + (weights["vector_sep_weight"] * sep_loss)
             + (weights["orthogonality_weight"] * orth_loss)
             + (weights["transfer_strength_weight"] * transfer_loss)
+            + (weights.get("edit_sensitivity_weight", 0.0) * edit_sensitivity_loss)
         )
         total_loss.backward()
         torch.nn.utils.clip_grad_norm_(state.model.parameters(), max_norm=ctx.schedule_config.max_grad_norm)
@@ -174,6 +200,7 @@ def train_one_epoch(
         epoch_sep += float(sep_loss.detach().cpu().item())
         epoch_orth += float(orth_loss.detach().cpu().item())
         epoch_transfer += float(transfer_loss.detach().cpu().item())
+        epoch_edit_sensitivity += float(edit_sensitivity_loss.detach().cpu().item())
         epoch_disc += float(disc_loss.detach().cpu().item())
         epoch_logits.append(out.classification_logits.detach().cpu())
         epoch_labels.append(labels.detach().cpu())
@@ -191,11 +218,12 @@ def train_one_epoch(
             radv=f"{epoch_residual_adv / max(batches, 1):.4f}",
             orth=f"{epoch_orth / max(batches, 1):.4f}",
             tr=f"{epoch_transfer / max(batches, 1):.4f}",
+            edit=f"{epoch_edit_sensitivity / max(batches, 1):.4f}",
             rs=f"{weights['residual_scale']:.3f}",
             lr=f"{state.optimizer.param_groups[0]['lr']:.2e}",
         )
 
-        del out, total_loss, copy_loss, tc_loss, vec_adv_loss, residual_adv_loss, sep_loss, orth_loss, transfer_loss, disc_loss, input_ids, attention_mask, labels
+        del out, total_loss, copy_loss, tc_loss, vec_adv_loss, residual_adv_loss, sep_loss, orth_loss, transfer_loss, edit_sensitivity_loss, disc_loss, input_ids, attention_mask, labels
         if tc_for_disc is not None:
             del tc_for_disc
 
@@ -221,6 +249,7 @@ def train_one_epoch(
             "avg_sep": epoch_sep / max(batches, 1),
             "avg_orth": epoch_orth / max(batches, 1),
             "avg_transfer": epoch_transfer / max(batches, 1),
+            "avg_edit_sensitivity": epoch_edit_sensitivity / max(batches, 1),
             "avg_disc": epoch_disc / max(batches, 1),
             "weighted_recon": weights["recon_weight"] * (epoch_recon / max(batches, 1)),
             "weighted_kl": weights["kl_weight"] * (epoch_kl / max(batches, 1)),
@@ -232,6 +261,7 @@ def train_one_epoch(
             "weighted_sep": weights["vector_sep_weight"] * (epoch_sep / max(batches, 1)),
             "weighted_orth": weights["orthogonality_weight"] * (epoch_orth / max(batches, 1)),
             "weighted_transfer": weights["transfer_strength_weight"] * (epoch_transfer / max(batches, 1)),
+            "weighted_edit_sensitivity": weights.get("edit_sensitivity_weight", 0.0) * (epoch_edit_sensitivity / max(batches, 1)),
         }
     )
     release_memory()

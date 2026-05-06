@@ -3,7 +3,7 @@ from __future__ import annotations
 from ..utils.common import *
 from ..config import PromptConfig
 from .generation import compute_copy_loss_from_memory, generate_text_from_memory, summarize_copy_metrics
-from ..training.losses import cross_covariance_penalty, factorvae_tc_loss, residual_probe_loss, tc_latents_for_tc, transfer_strength_margin_loss, vector_probe_loss
+from ..training.losses import cross_covariance_penalty, emotion_decoder_sensitivity_loss, factorvae_tc_loss, residual_probe_loss, tc_latents_for_tc, transfer_strength_margin_loss, vector_probe_loss
 from ..training.schedules import current_loss_weights
 from ..schemas import ExperimentContext, TrainingState
 from ..modeling.t5_utils import masked_mean
@@ -154,6 +154,7 @@ def evaluate_loader(
     total_sep = 0.0
     total_orth = 0.0
     total_transfer = 0.0
+    total_edit_sensitivity = 0.0
     steps = 0
 
     all_logits = []
@@ -224,6 +225,28 @@ def evaluate_loader(
                 labels=labels,
                 margin=ctx.loss_config.transfer_strength_margin,
             )
+            edit_sensitivity_loss = out.base_loss.new_zeros(())
+            if weights.get("edit_sensitivity_weight", 0.0) > 0.0:
+                zero_scalar = torch.zeros_like(out.vae.scalar_z)
+                null_pooled, _ = model.pooled_scalar_tensor_from_latent_parts(
+                    scalar_latents=zero_scalar,
+                    vector_latents=out.vae.vector_z,
+                    t5_encoder_sequence=out.t5_encoder_sequence,
+                    attention_mask=attention_mask,
+                )
+                _, _, decoder_memory_without_emotion = model.decode_from_latent_parts(
+                    scalar_latents=zero_scalar,
+                    vector_latents=out.vae.vector_z,
+                    t5_encoder_sequence=out.t5_encoder_sequence,
+                    pooled_scalar_tensor=null_pooled,
+                    residual_scale=weights["residual_scale"],
+                )
+                edit_sensitivity_loss = emotion_decoder_sensitivity_loss(
+                    decoder_memory=out.decoder_memory,
+                    decoder_memory_without_emotion=decoder_memory_without_emotion,
+                    attention_mask=attention_mask,
+                    margin=ctx.loss_config.edit_sensitivity_margin,
+                )
 
             total_loss = (
                 out.base_loss
@@ -234,6 +257,7 @@ def evaluate_loader(
                 + (weights["vector_sep_weight"] * sep_loss)
                 + (weights["orthogonality_weight"] * orth_loss)
                 + (weights["transfer_strength_weight"] * transfer_loss)
+                + (weights.get("edit_sensitivity_weight", 0.0) * edit_sensitivity_loss)
             )
 
             all_logits.append(out.classification_logits.detach().cpu())
@@ -254,6 +278,7 @@ def evaluate_loader(
             total_sep += float(sep_loss.detach().cpu().item())
             total_orth += float(orth_loss.detach().cpu().item())
             total_transfer += float(transfer_loss.detach().cpu().item())
+            total_edit_sensitivity += float(edit_sensitivity_loss.detach().cpu().item())
             steps += 1
 
     logits = torch.cat(all_logits, dim=0)
@@ -296,12 +321,18 @@ def evaluate_loader(
             active_variance_threshold=getattr(ctx.experiment_config, "latent_active_variance_threshold", 1e-4),
             max_samples=getattr(ctx.experiment_config, "latent_diagnostics_max_samples", 4096),
             seed=getattr(ctx.experiment_config, "seed", 42),
+            probe_eval_fraction=getattr(ctx.experiment_config, "latent_diagnostics_probe_eval_fraction", 0.30),
+            min_probe_train_examples=getattr(ctx.experiment_config, "latent_diagnostics_min_probe_train_examples", 64),
         )
         metrics["latent_diagnostics"] = diagnostics
         metrics["factor_power"] = diagnostics["factor_power"]
         metrics["emotion_meaning_split"] = diagnostics["emotion_meaning_split"]
         metrics["factor_dci_disentanglement"] = diagnostics["factor_power"]["dci"]["dci_disentanglement"]
         metrics["factor_dci_completeness"] = diagnostics["factor_power"]["dci"]["dci_completeness"]
+        metrics["branch_dci_completeness"] = diagnostics["emotion_meaning_split"]["branch_group_dci"]["dci_completeness"]
+        metrics["branch_mig"] = diagnostics["emotion_meaning_split"]["branch_group_mig"]["emotion_vs_meaning_mig_signed_macro"]
+        metrics["emotion_branch_importance_share"] = diagnostics["emotion_meaning_split"]["emotion_branch_importance_share"]
+        metrics["meaning_branch_emotion_leakage_share"] = diagnostics["emotion_meaning_split"]["meaning_branch_emotion_leakage_share"]
         metrics["factor_effective_num_factors"] = diagnostics["factor_power"]["effective_num_factors"]
         metrics["factor_active_scalar_factors"] = diagnostics["factor_power"]["active_scalar_factors"]
         metrics["emotion_meaning_separation_r2"] = diagnostics["emotion_meaning_split"]["emotion_meaning_separation_r2"]
@@ -324,6 +355,7 @@ def evaluate_loader(
             "avg_sep": total_sep / max(steps, 1),
             "avg_orth": total_orth / max(steps, 1),
             "avg_transfer": total_transfer / max(steps, 1),
+            "avg_edit_sensitivity": total_edit_sensitivity / max(steps, 1),
             "weighted_recon": weights["recon_weight"] * (total_recon / max(steps, 1)),
             "weighted_kl": weights["kl_weight"] * (total_kl / max(steps, 1)),
             "weighted_cls": weights["classification_weight"] * (total_cls / max(steps, 1)),
@@ -334,6 +366,7 @@ def evaluate_loader(
             "weighted_sep": weights["vector_sep_weight"] * (total_sep / max(steps, 1)),
             "weighted_orth": weights["orthogonality_weight"] * (total_orth / max(steps, 1)),
             "weighted_transfer": weights["transfer_strength_weight"] * (total_transfer / max(steps, 1)),
+            "weighted_edit_sensitivity": weights.get("edit_sensitivity_weight", 0.0) * (total_edit_sensitivity / max(steps, 1)),
             "steps": steps,
         }
     )
@@ -358,6 +391,10 @@ def summarize_eval_metrics(prefix: str, metrics: Dict[str, Any], num_labels: int
         f"lrap={metrics['label_ranking_average_precision']:.4f} "
         f"semval_pearson={metrics.get('semeval_ei_reg_official_score', 0.0):.4f} "
         f"factor_dci={metrics.get('factor_power', {}).get('dci', {}).get('dci_disentanglement', 0.0):.4f} "
+        f"branch_dci={metrics.get('branch_dci_completeness', 0.0):.4f} "
+        f"branch_mig={metrics.get('branch_mig', 0.0):.4f} "
+        f"emo_share={metrics.get('emotion_branch_importance_share', 0.0):.4f} "
+        f"leak_share={metrics.get('meaning_branch_emotion_leakage_share', 0.0):.4f} "
         f"split_r2={metrics.get('emotion_meaning_split', {}).get('emotion_meaning_separation_r2', 0.0):.4f}"
     )
 

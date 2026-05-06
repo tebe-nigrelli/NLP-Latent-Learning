@@ -207,3 +207,32 @@ def cross_covariance_penalty(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
     cov = a_centered.transpose(0, 1) @ b_centered
     cov = cov / float(max(a.size(0) - 1, 1))
     return cov.pow(2).mean()
+
+def masked_rms_difference(
+    a: torch.Tensor,
+    b: torch.Tensor,
+    attention_mask: Optional[torch.Tensor] = None,
+) -> torch.Tensor:
+    diff2 = (a - b).pow(2)
+    if attention_mask is None:
+        return diff2.mean().clamp_min(1e-12).sqrt()
+    mask = attention_mask.to(dtype=diff2.dtype, device=diff2.device).unsqueeze(-1)
+    denom = mask.sum().clamp_min(1.0) * diff2.size(-1)
+    return ((diff2 * mask).sum() / denom).clamp_min(1e-12).sqrt()
+
+
+def emotion_decoder_sensitivity_loss(
+    decoder_memory: torch.Tensor,
+    decoder_memory_without_emotion: torch.Tensor,
+    attention_mask: Optional[torch.Tensor],
+    margin: float,
+) -> torch.Tensor:
+    """Require scalar/emotion latents to have a visible effect on decoder memory.
+
+    This is branch-level editability pressure, not per-dimension disentanglement.
+    If zeroing the emotion branch barely changes the memory that T5 decodes from,
+    latent emotion edits will change classifier logits but not generated text.
+    """
+
+    distance = masked_rms_difference(decoder_memory, decoder_memory_without_emotion, attention_mask)
+    return F.relu(decoder_memory.new_tensor(float(margin)) - distance)

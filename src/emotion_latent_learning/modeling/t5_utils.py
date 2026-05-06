@@ -126,24 +126,22 @@ def resolve_lora_target_modules(
     )
 
 
-def is_decoder_cross_attention_lora_parameter(name: str) -> bool:
+def is_decoder_lora_parameter(name: str) -> bool:
     if "lora_" not in name:
         return False
     lower = name.lower()
-    is_decoder = ("decoder.block" in lower) or ("decoder.layers" in lower)
-    is_cross = ("encdecattention" in lower) or ("layer.1" in lower) or ("cross_attn" in lower)
-    return is_decoder and is_cross
+    return ("decoder.block" in lower) or ("decoder.layers" in lower)
 
 
 def freeze_non_lora_parameters(module: nn.Module) -> None:
     for name, param in module.named_parameters():
-        param.requires_grad = is_decoder_cross_attention_lora_parameter(name)
+        param.requires_grad = is_decoder_lora_parameter(name)
 
 
 def set_lora_trainable(module: nn.Module, enabled: bool) -> None:
     for name, param in module.named_parameters():
         if "lora_" in name:
-            param.requires_grad = enabled and is_decoder_cross_attention_lora_parameter(name)
+            param.requires_grad = enabled and is_decoder_lora_parameter(name)
 
 
 def set_requires_grad(module: nn.Module, enabled: bool) -> None:

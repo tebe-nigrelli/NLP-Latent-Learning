@@ -66,6 +66,8 @@ class T5DecoderBackbone(nn.Module):
         max_new_tokens: int,
         num_beams: int = 1,
         do_sample: bool = False,
+        repetition_penalty: float = 1.2,
+        no_repeat_ngram_size: int = 3,
     ) -> torch.LongTensor:
         return self.model.generate(
             decoder_input_ids=decoder_input_ids,
@@ -74,4 +76,9 @@ class T5DecoderBackbone(nn.Module):
             max_new_tokens=max_new_tokens,
             num_beams=num_beams,
             do_sample=do_sample,
+            decoder_start_token_id=self.decoder_start_token_id,
+            pad_token_id=getattr(self.model.config, "pad_token_id", None),
+            eos_token_id=getattr(self.model.config, "eos_token_id", None),
+            repetition_penalty=repetition_penalty,
+            no_repeat_ngram_size=no_repeat_ngram_size,
         )

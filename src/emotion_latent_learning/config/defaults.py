@@ -58,10 +58,11 @@ class PromptConfig:
 class ModelConfig:
     model_name: str = "google/flan-t5-small"
     num_scalar_factors: int = 28
-    vector_latent_dim: int = 512
+    vector_latent_dim: int = 256
     vae_hidden_dim: int = 1024
     residual_bottleneck_dim: int = 64
     residual_bottleneck_dropout: float = 0.5
+    normalize_decoder_memory: bool = False
     use_lora: bool = True
     lora_r: int = 16
     lora_alpha: int = 32
@@ -90,8 +91,8 @@ class ModelConfig:
 class LossConfig:
     classification_weight: float = 4.0
     recon_weight: float = 2.0
-    kl_weight: float = 1.0
-    tc_weight: float = 1.0
+    kl_weight: float = 0.05
+    tc_weight: float = 0.0
     tc_subspace: str = "full"
     tc_mode: str = "per_token"
     copy_weight: float = 2.0
@@ -101,6 +102,9 @@ class LossConfig:
     transfer_strength_weight: float = 0.25
     transfer_strength_margin: float = 2.0
     residual_adv_weight: float = 1.0
+    # Encourage scalar/emotion latents to actually change decoder memory when edited.
+    edit_sensitivity_weight: float = 0.10
+    edit_sensitivity_margin: float = 0.15
 
 
 @dataclass
@@ -115,8 +119,8 @@ class ScheduleConfig:
     warmup_ratio: float = 0.1
     min_lr_scale: float = 0.1
     lora_start_epoch: int = 4
-    copy_loss_start_epoch: int = 7
-    copy_loss_vae_freeze_epochs: int = 3
+    copy_loss_start_epoch: int = 1
+    copy_loss_vae_freeze_epochs: int = 0
     vector_adv_warmup_epochs: int = 5
     residual_adv_warmup_epochs: int = 5
     residual_decay_start_epoch: int = 4
@@ -125,14 +129,14 @@ class ScheduleConfig:
     residual_scale_end: float = 0.1
     eval_every_epoch: bool = True
     kl_zero_epochs: int = 4
-    kl_warmup_end_epoch: int = 10
+    kl_warmup_end_epoch: int = 16
 
 
 @dataclass
 class ExperimentConfig:
     seed: int = 42
     output_dir: str = "factorvae_tokenlevel_clean_artifacts"
-    sample_posterior_train: bool = True
+    sample_posterior_train: bool = False
     sample_posterior_eval: bool = False
     prompt_eval_num_examples: int = 32
     prompt_candidates: Tuple[str, ...] = (
@@ -161,3 +165,5 @@ class ExperimentConfig:
     latent_diagnostics_max_samples: int = 4096
     latent_diagnostics_ridge_alpha: float = 1.0
     latent_active_variance_threshold: float = 1e-4
+    latent_diagnostics_probe_eval_fraction: float = 0.30
+    latent_diagnostics_min_probe_train_examples: int = 64

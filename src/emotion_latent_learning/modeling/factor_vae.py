@@ -339,12 +339,14 @@ class T5FactorVAEModel(nn.Module):
             beta = beta.unsqueeze(1)
             base_memory = vector_memory + scalar_token_memory + summary_bias
             vae_decoded_sequence = (1.0 + gamma) * base_memory + beta
-            decoder_memory = self.memory_norm(vae_decoded_sequence + residual_memory)
+            raw_decoder_memory = vae_decoded_sequence + residual_memory
+            decoder_memory = self.memory_norm(raw_decoder_memory) if self.model_config.normalize_decoder_memory else raw_decoder_memory
             return vae_decoded_sequence, residual_memory, decoder_memory
 
         z = torch.cat([scalar_latents, vector_latents], dim=-1)
         vae_decoded_sequence = self.vae_decoder(z=z)
-        decoder_memory = self.memory_norm(vae_decoded_sequence + residual_memory)
+        raw_decoder_memory = vae_decoded_sequence + residual_memory
+        decoder_memory = self.memory_norm(raw_decoder_memory) if self.model_config.normalize_decoder_memory else raw_decoder_memory
         return vae_decoded_sequence, residual_memory, decoder_memory
 
     def decode(
@@ -371,6 +373,7 @@ class T5FactorVAEModel(nn.Module):
         classification_logits: torch.Tensor,
         t5_encoder_sequence: torch.Tensor,
         vae_decoded_sequence: torch.Tensor,
+        decoder_memory: torch.Tensor,
         vae_out: FactorVAEOutput,
         attention_mask: Optional[torch.Tensor],
         labels: Optional[torch.Tensor],
@@ -378,11 +381,16 @@ class T5FactorVAEModel(nn.Module):
         recon_weight: float,
         kl_weight: float,
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
+        # Match the tensor that is actually fed to T5's decoder cross-attention.
+        # Previously this loss optimized `vae_decoded_sequence`, while copy/generation
+        # used `memory_norm(vae_decoded_sequence + residual_memory)`. That let the
+        # reported reconstruction loss look good even when the decoder saw an
+        # out-of-distribution memory and collapsed to repeated tokens.
         if attention_mask is None:
-            recon_loss = F.mse_loss(vae_decoded_sequence, t5_encoder_sequence)
+            recon_loss = F.mse_loss(decoder_memory, t5_encoder_sequence)
         else:
             mask = attention_mask.to(t5_encoder_sequence.dtype).unsqueeze(-1)
-            sq_error = (vae_decoded_sequence - t5_encoder_sequence).pow(2)
+            sq_error = (decoder_memory - t5_encoder_sequence).pow(2)
             denom = mask.sum().clamp_min(1.0) * sq_error.size(-1)
             recon_loss = (sq_error * mask).sum() / denom
 
@@ -441,6 +449,7 @@ class T5FactorVAEModel(nn.Module):
                 classification_logits=classification_logits,
                 t5_encoder_sequence=t5_encoder_sequence,
                 vae_decoded_sequence=vae_decoded_sequence,
+                decoder_memory=decoder_memory,
                 vae_out=vae_out,
                 attention_mask=attention_mask,
                 labels=labels,

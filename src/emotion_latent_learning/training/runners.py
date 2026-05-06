@@ -31,7 +31,7 @@ def run_training(runtime: ExperimentRuntime, monitor: bool = True, save_each_epo
             f"'kl': {weights['kl_weight']:.4f}, 'tc': {weights['tc_weight']:.4f}, 'copy': {weights['copy_weight']:.4f}, "
             f"'vec_adv': {weights['vector_adv_weight']:.4f}, 'res_adv': {weights['residual_adv_weight']:.4f}, "
             f"'sep': {weights['vector_sep_weight']:.4f}, 'orth': {weights['orthogonality_weight']:.4f}, "
-            f"'transfer': {weights['transfer_strength_weight']:.4f}, 'res_scale': {weights['residual_scale']:.4f}}} "
+            f"'transfer': {weights['transfer_strength_weight']:.4f}, 'edit': {weights['edit_sensitivity_weight']:.4f}, 'res_scale': {weights['residual_scale']:.4f}}} "
             f"lora_enabled={epoch >= ctx.schedule_config.lora_start_epoch} "
             f"tc_mode={ctx.loss_config.tc_mode} threshold_mode={ctx.experiment_config.threshold_mode}"
         )
