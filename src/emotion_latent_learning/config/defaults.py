@@ -56,9 +56,9 @@ class PromptConfig:
 
 @dataclass
 class ModelConfig:
-    model_name: str = "google/flan-t5-small"
+    model_name: str = "google/flan-t5-base"
     num_scalar_factors: int = 28
-    vector_latent_dim: int = 256
+    vector_latent_dim: int = 64
     vae_hidden_dim: int = 1024
     residual_bottleneck_dim: int = 64
     residual_bottleneck_dropout: float = 0.5
@@ -72,12 +72,12 @@ class ModelConfig:
     attention_source: str = "encoder_sequence"
     pooling_mode: str = "per_scalar_dim"
     classifier_mode: str = "per_emotion_mlp"
-    classifier_parameterization: str = "standard"
+    classifier_parameterization: str = "orthogonal"
     classifier_dropout: float = 0.1
     per_emotion_hidden_dim: int = 32
     joint_mlp_hidden_dim: int = 128
     classifier_uses_mu: bool = False
-    use_skip_connection: bool = True
+    use_skip_connection: bool = False
     vae_dropout: float = 0.1
     vector_adversary_hidden_dim: int = 128
     residual_adversary_hidden_dim: int = 128
@@ -92,7 +92,7 @@ class LossConfig:
     classification_weight: float = 4.0
     recon_weight: float = 2.0
     kl_weight: float = 0.05
-    tc_weight: float = 0.0
+    tc_weight: float = 0.1
     tc_subspace: str = "full"
     tc_mode: str = "per_token"
     copy_weight: float = 2.0
@@ -152,7 +152,7 @@ class ExperimentConfig:
     monitor_edit_steps: int = 24
     threshold_grid_points: int = 101
     threshold_mode: str = "per_label"
-    monitor_edit_method: str = "backprop"
+    monitor_edit_method: str = "closed_form"
     edit_force_scale: float = 1.5
     edit_ridge: float = 1e-3
     edit_backsolve_ridge: float = 1e-3

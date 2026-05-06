@@ -95,7 +95,7 @@ def compute_copy_loss_from_memory(
     texts: Sequence[str],
     prompt_config: PromptConfig,
     device: torch.device,
-    copy_loss_batch_size: int = 1,
+    copy_loss_batch_size: int = 8,
     detach_decoder_memory: bool = False,
 ) -> torch.Tensor:
     """Compute copy loss using micro-batching to reduce peak memory usage.
