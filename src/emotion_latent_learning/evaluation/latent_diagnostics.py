@@ -414,6 +414,106 @@ def _aggregate_group_importance(
         }
     return np.stack(rows, axis=0), details
 
+def scalar_label_block_alignment(
+    label_corr: np.ndarray,
+    ridge_importance: np.ndarray,
+    label_names: Sequence[str],
+) -> Optional[Dict[str, Any]]:
+    """Evaluate block-diagonal alignment when each label owns a scalar block.
+
+    For 56 scalar factors and 28 labels, this treats dims [2j, 2j+1] as the
+    assigned block for label j. For the original 28-factor model, this reduces
+    to ordinary block size 1.
+    """
+    label_corr = np.asarray(label_corr, dtype=np.float64)
+    ridge_importance = np.asarray(ridge_importance, dtype=np.float64)
+    num_labels = len(label_names)
+
+    if label_corr.ndim != 2 or label_corr.shape[1] != num_labels or num_labels == 0:
+        return None
+
+    num_scalar_factors = label_corr.shape[0]
+    if num_scalar_factors % num_labels != 0:
+        return None
+
+    block_size = num_scalar_factors // num_labels
+    if block_size < 1:
+        return None
+
+    def aggregate_by_block(matrix: np.ndarray) -> np.ndarray:
+        matrix = np.asarray(matrix, dtype=np.float64)
+        out = np.zeros((num_labels, num_labels), dtype=np.float64)
+
+        if matrix.ndim != 2 or matrix.shape[0] < num_scalar_factors or matrix.shape[1] < num_labels:
+            return out
+
+        for block_idx in range(num_labels):
+            start = block_idx * block_size
+            end = start + block_size
+            block = matrix[start:end, :num_labels]
+
+            # L2 aggregate over the scalar block, normalized by sqrt(block_size).
+            out[block_idx, :] = np.sqrt(np.sum(block ** 2, axis=0)) / math.sqrt(max(block_size, 1))
+
+        return out
+
+    corr_block = aggregate_by_block(np.abs(label_corr))
+    importance_block = aggregate_by_block(np.abs(ridge_importance))
+
+    diag_corr = np.diag(corr_block) if corr_block.size else np.zeros((0,), dtype=np.float64)
+    off_corr = corr_block.copy()
+    if off_corr.size:
+        np.fill_diagonal(off_corr, 0.0)
+
+    diag_importance = np.diag(importance_block) if importance_block.size else np.zeros((0,), dtype=np.float64)
+    off_importance = importance_block.copy()
+    if off_importance.size:
+        np.fill_diagonal(off_importance, 0.0)
+
+    top_block_matches = []
+    per_label = {}
+
+    for label_idx, name in enumerate(label_names):
+        corr_col = corr_block[:, label_idx] if corr_block.size else np.zeros((num_labels,), dtype=np.float64)
+        imp_col = importance_block[:, label_idx] if importance_block.size else np.zeros((num_labels,), dtype=np.float64)
+
+        top_corr_block = int(np.argmax(corr_col)) if corr_col.size else -1
+        top_imp_block = int(np.argmax(imp_col)) if imp_col.size else -1
+        top_block_matches.append(1.0 if top_corr_block == label_idx else 0.0)
+
+        assigned_corr = float(corr_col[label_idx]) if corr_col.size else 0.0
+        assigned_imp = float(imp_col[label_idx]) if imp_col.size else 0.0
+
+        per_label[str(name)] = {
+            "assigned_block_index": int(label_idx),
+            "assigned_scalar_start": int(label_idx * block_size),
+            "assigned_scalar_end_exclusive": int((label_idx + 1) * block_size),
+            "assigned_block_correlation": assigned_corr,
+            "assigned_block_importance": assigned_imp,
+            "assigned_block_correlation_share": assigned_corr / max(float(corr_col.sum()), 1e-12),
+            "assigned_block_importance_share": assigned_imp / max(float(imp_col.sum()), 1e-12),
+            "top_correlation_block_index": top_corr_block,
+            "top_correlation_block_name": str(label_names[top_corr_block]) if 0 <= top_corr_block < num_labels else None,
+            "top_importance_block_index": top_imp_block,
+            "top_importance_block_name": str(label_names[top_imp_block]) if 0 <= top_imp_block < num_labels else None,
+        }
+
+    return {
+        "num_labels": int(num_labels),
+        "num_scalar_factors": int(num_scalar_factors),
+        "scalar_factors_per_label": int(block_size),
+        "block_label_correlation_matrix": corr_block.astype(float).tolist(),
+        "block_label_importance_matrix": importance_block.astype(float).tolist(),
+        "mean_assigned_block_correlation": float(diag_corr.mean()) if diag_corr.size else 0.0,
+        "mean_off_block_correlation": float(off_corr.sum() / max(off_corr.size - len(diag_corr), 1)) if off_corr.size else 0.0,
+        "assigned_block_correlation_dominance": float(diag_corr.sum() / max(corr_block.sum(), 1e-12)) if corr_block.size else 0.0,
+        "mean_assigned_block_importance": float(diag_importance.mean()) if diag_importance.size else 0.0,
+        "mean_off_block_importance": float(off_importance.sum() / max(off_importance.size - len(diag_importance), 1)) if off_importance.size else 0.0,
+        "assigned_block_importance_dominance": float(diag_importance.sum() / max(importance_block.sum(), 1e-12)) if importance_block.size else 0.0,
+        "top_correlation_block_match_rate": _safe_mean(top_block_matches),
+        "per_label": per_label,
+    }
+
 
 def classifier_weight_factor_power(model: Any, label_names: Sequence[str]) -> Dict[str, Any]:
     """Inspect linear classifier weights when the classifier exposes them."""
@@ -526,7 +626,15 @@ def factor_power_metrics(
         train_indices=probe_train_indices,
         eval_indices=probe_eval_indices,
     )
-    dci = _dci_from_importance(np.asarray(probe["ridge_importance_matrix"], dtype=np.float64))
+    
+    ridge_importance = np.asarray(probe["ridge_importance_matrix"], dtype=np.float64)
+    dci = _dci_from_importance(ridge_importance)
+
+    block_alignment = scalar_label_block_alignment(
+        label_corr=label_corr,
+        ridge_importance=ridge_importance,
+        label_names=label_names,
+    )
 
     diagonal_alignment = None
     if scalar.shape[1] == len(label_names):

@@ -219,7 +219,36 @@ class T5FactorVAEModel(nn.Module):
         return pooled_scalar_tensor.flatten(start_dim=1)
 
     def features_to_pooled_scalar_tensor(self, features: torch.Tensor) -> torch.Tensor:
-        return features.view(features.size(0), self.num_labels, self.model_config.latent_pool_heads)
+        """Return pooled scalar features as [batch, num_scalar_factors, latent_pool_heads].
+
+        Accepts either:
+        - flattened features: [batch, num_scalar_factors * latent_pool_heads]
+        - already pooled features: [batch, num_scalar_factors, latent_pool_heads]
+        """
+        num_heads = self.model_config.latent_pool_heads
+
+        if features.dim() == 3:
+            if features.size(1) != self.num_scalar_factors or features.size(2) != num_heads:
+                raise ValueError(
+                    "Expected pooled scalar tensor with shape "
+                    f"[batch, {self.num_scalar_factors}, {num_heads}], "
+                    f"got {tuple(features.shape)}."
+                )
+            return features
+
+        if features.dim() == 2:
+            expected_dim = self.num_scalar_factors * num_heads
+            if features.size(1) != expected_dim:
+                raise ValueError(
+                    "Expected flattened scalar features with shape "
+                    f"[batch, {expected_dim}], got {tuple(features.shape)}."
+                )
+            return features.reshape(features.size(0), self.num_scalar_factors, num_heads)
+
+        raise ValueError(
+            "Expected scalar features to be either 2D flattened features or "
+            f"3D pooled scalar tensor; got shape {tuple(features.shape)}."
+        )
 
     def classification_logits_from_features(self, features: torch.Tensor) -> torch.Tensor:
         if self.classifier_mode == "joint_mlp":

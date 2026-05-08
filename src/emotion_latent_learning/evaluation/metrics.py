@@ -340,6 +340,12 @@ def evaluate_loader(
         metrics["emotion_leakage_vector_r2"] = diagnostics["emotion_meaning_split"]["emotion_leakage_vector_r2"]
         metrics["emotion_in_scalar_r2"] = diagnostics["emotion_meaning_split"]["emotion_in_scalar_r2"]
         metrics["scalar_vector_mean_abs_correlation"] = diagnostics["emotion_meaning_split"]["scalar_vector_mean_abs_correlation"]
+        block_alignment = diagnostics["factor_power"].get("block_alignment")
+        if block_alignment is not None:
+            metrics["block_assigned_correlation_dominance"] = block_alignment["assigned_block_correlation_dominance"]
+            metrics["block_assigned_importance_dominance"] = block_alignment["assigned_block_importance_dominance"]
+            metrics["block_top_correlation_match_rate"] = block_alignment["top_correlation_block_match_rate"]
+            metrics["scalar_factors_per_label"] = block_alignment["scalar_factors_per_label"]
 
     metrics.update(
         {
