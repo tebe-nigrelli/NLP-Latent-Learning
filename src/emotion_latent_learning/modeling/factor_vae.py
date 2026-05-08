@@ -35,7 +35,7 @@ class T5FactorVAEModel(nn.Module):
         valid_sources = {"scalar_only", "vector_only", "latent_full", "encoder_sequence"}
         if self.attention_source not in valid_sources:
             raise ValueError(f"Unsupported attention_source={self.attention_source}. Expected one of {sorted(valid_sources)}")
-        valid_classifier_modes = {"joint_mlp", "per_emotion_mlp"}
+        valid_classifier_modes = {"joint_mlp", "per_emotion_mlp", "per_emotion_pair_mlp"}
         if self.classifier_mode not in valid_classifier_modes:
             raise ValueError(f"Unsupported classifier_mode={self.classifier_mode}. Expected one of {sorted(valid_classifier_modes)}")
         valid_classifier_parameterizations = {"standard", "orthogonal"}
@@ -52,6 +52,14 @@ class T5FactorVAEModel(nn.Module):
             )
         if self.classifier_mode == "per_emotion_mlp" and self.num_scalar_factors != num_labels:
             raise ValueError("per_emotion_mlp requires num_scalar_factors == num_labels")
+        if self.classifier_mode == "per_emotion_pair_mlp":
+            required_scalar_factors = 2 * num_labels
+            if self.num_scalar_factors != required_scalar_factors:
+                raise ValueError(
+                    "per_emotion_pair_mlp is intended for exactly two scalar factors per label: "
+                    f"num_scalar_factors must equal 2 * num_labels ({required_scalar_factors}); "
+                    f"got {self.num_scalar_factors}."
+                )
 
         shared_t5 = AutoModelForSeq2SeqLM.from_pretrained(model_config.model_name)
         self.lora_target_modules = tuple()
@@ -160,13 +168,20 @@ class T5FactorVAEModel(nn.Module):
                 self.classifier = nn.Linear(classifier_input_dim, num_labels)
                 nn.init.orthogonal_(self.classifier.weight)
                 nn.init.zeros_(self.classifier.bias)
+        
         else:
+
+            per_head_input_dim = model_config.latent_pool_heads
+
+            if self.classifier_mode == "per_emotion_pair_mlp":
+                per_head_input_dim = 2 * model_config.latent_pool_heads
+
             if self.classifier_parameterization == "standard":
                 self.emotion_classifiers = nn.ModuleList(
                     [
                         nn.Sequential(
                             nn.Dropout(model_config.classifier_dropout),
-                            nn.Linear(model_config.latent_pool_heads, model_config.per_emotion_hidden_dim),
+                            nn.Linear(per_head_input_dim, model_config.per_emotion_hidden_dim),
                             nn.GELU(),
                             nn.Linear(model_config.per_emotion_hidden_dim, 1),
                         )
@@ -176,12 +191,12 @@ class T5FactorVAEModel(nn.Module):
             else:
                 self.emotion_classifiers = nn.ModuleList(
                     [
-                        nn.Linear(model_config.latent_pool_heads, 1)
+                        nn.Linear(per_head_input_dim, 1)
                         for _ in range(num_labels)
                     ]
                 )
                 for head in self.emotion_classifiers:
-                    nn.init.normal_(head.weight, mean=0.0, std=1.0 / math.sqrt(max(model_config.latent_pool_heads, 1)))
+                    nn.init.normal_(head.weight, mean=0.0, std=1.0 / math.sqrt(max(per_head_input_dim, 1)))
                     with torch.no_grad():
                         norm = head.weight.norm(p=2, dim=1, keepdim=True).clamp_min(1e-8)
                         head.weight.div_(norm)
@@ -209,7 +224,32 @@ class T5FactorVAEModel(nn.Module):
     def classification_logits_from_features(self, features: torch.Tensor) -> torch.Tensor:
         if self.classifier_mode == "joint_mlp":
             return self.classifier(features)
+
         pooled_scalar_tensor = self.features_to_pooled_scalar_tensor(features)
+
+        if self.classifier_mode == "per_emotion_pair_mlp":
+            if pooled_scalar_tensor.size(1) != 2 * self.num_labels:
+                raise ValueError(
+                    "per_emotion_pair_mlp requires pooled_scalar_tensor to have "
+                    f"{2 * self.num_labels} scalar factors; got {pooled_scalar_tensor.size(1)}."
+                )
+
+            logits = []
+            batch_size = pooled_scalar_tensor.size(0)
+
+            for idx, head in enumerate(self.emotion_classifiers):
+                scalar_start = 2 * idx
+                scalar_end = scalar_start + 2
+
+                # Shape: [batch, 2, num_heads] -> [batch, 2 * num_heads]
+                label_features = pooled_scalar_tensor[:, scalar_start:scalar_end, :]
+                label_features = label_features.reshape(batch_size, -1)
+
+                logits.append(head(label_features))
+
+            return torch.cat(logits, dim=-1)
+
+        # Default: per_emotion_mlp.
         logits = [
             head(pooled_scalar_tensor[:, idx, :])
             for idx, head in enumerate(self.emotion_classifiers)
@@ -240,17 +280,49 @@ class T5FactorVAEModel(nn.Module):
     def classifier_linear_weight_and_bias(self) -> Tuple[torch.Tensor, torch.Tensor]:
         if self.classifier_parameterization != "orthogonal":
             raise ValueError("Linear classifier parameters are only available for orthogonal parameterization.")
+
         if self.classifier_mode == "joint_mlp":
             return self.classifier.weight, self.classifier.bias
 
         num_heads = self.model_config.latent_pool_heads
-        weight = next(self.parameters()).new_zeros((self.num_labels, self.num_labels * num_heads))
+
+        if self.classifier_mode == "per_emotion_pair_mlp":
+            if self.num_scalar_factors != 2 * self.num_labels:
+                raise ValueError(
+                    "per_emotion_pair_mlp requires num_scalar_factors == 2 * num_labels "
+                    f"({2 * self.num_labels}); got {self.num_scalar_factors}."
+                )
+
+            weight = next(self.parameters()).new_zeros(
+                (self.num_labels, self.num_scalar_factors * num_heads)
+            )
+            bias = next(self.parameters()).new_zeros((self.num_labels,))
+
+            for idx, head in enumerate(self.emotion_classifiers):
+                scalar_start = 2 * idx
+                scalar_end = scalar_start + 2
+
+                flat_start = scalar_start * num_heads
+                flat_end = scalar_end * num_heads
+
+                weight[idx, flat_start:flat_end] = head.weight.squeeze(0)
+                bias[idx] = head.bias.squeeze(0)
+
+            return weight, bias
+
+        # Default: per_emotion_mlp.
+        weight = next(self.parameters()).new_zeros(
+            (self.num_labels, self.num_scalar_factors * num_heads)
+        )
         bias = next(self.parameters()).new_zeros((self.num_labels,))
+
         for idx, head in enumerate(self.emotion_classifiers):
-            start = idx * num_heads
-            end = start + num_heads
-            weight[idx, start:end] = head.weight.squeeze(0)
+            flat_start = idx * num_heads
+            flat_end = flat_start + num_heads
+
+            weight[idx, flat_start:flat_end] = head.weight.squeeze(0)
             bias[idx] = head.bias.squeeze(0)
+
         return weight, bias
 
     def classifier_regularization_loss(self) -> torch.Tensor:
