@@ -665,6 +665,7 @@ def factor_power_metrics(
         "ridge_probe": probe,
         "dci": dci,
         "diagonal_alignment": diagonal_alignment,
+        "block_alignment": block_alignment,
         "classifier_weight_power": classifier_power or {"available": False},
     }
 
