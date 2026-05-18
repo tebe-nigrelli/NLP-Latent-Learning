@@ -2,8 +2,13 @@
 __pycache__/
 .DS_Store
 models/
-data/
 output/
 *.egg-info
 *.pt
 *.json
+/attention_example_maps
+/attention_map_analysis
+/attention_template_variation
+/attention_word_condition_stats
+/config_matched_beta_schedule_ablation_artifacts
+/config_matched_beta_schedule_ablation_artifacts-(1)
