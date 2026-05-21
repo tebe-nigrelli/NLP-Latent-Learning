@@ -234,6 +234,14 @@
   We evaluate classification with *macro-F1* and *micro-F1*. Reconstruction is measured with *exact match* and *token F1*. For translation, we only report fluency through *GPT-2 perplexity* (PPL), since outputs are often nonsensical. We also report *median-PPL*, because *mean-PPL* suffers from the presence of large outliers.
 ]
 
+
+= Exploratory Data Analysis
+
+#limit-text(red-limit: 200)[
+  We analyze label frequency, number of emotions per input, input length, and label co-occurrence on 54263 GoEmotions comments GoEmotions comments. Excluding neutral, the three most frequent classes are admiration (5122), approval (3687), and gratitude (3372), while grief (96), pride (142), relief (182), and nervousness (208) are rare. The dataset is therefore strongly imbalanced. Most inputs contain a single emotion: 83.8% of examples have one label, 15.0% have two, 1.2% have three, 0.07% have four, and fewer than 0.01% have five. This confirms that the task is mostly single-label, but still requires sigmoid outputs instead of a softmax classifier. Inputs are short: the median length is 12 words, although the character distribution has a long tail up to 703 characters. These findings motivate reporting macro-$F_1$ together with micro-$F_1$, since micro-$F_1$ can hide poor performance on rare emotions.
+]
+
+
 = Architectures and Results
 
 #place(
@@ -295,6 +303,16 @@ This model preserves the previous disentanglement results, while slightly improv
   During training, inspired by Park et al. @park2021finetuningpretrainedtransformersvariational, we add a warmup schedule to the FactorVAE. The KL and TC loss weights start at zero, allowing the split-FiLM decoder to learn reconstruction before regularization. The weights are then gradually increased over the training.
   We evaluate how different schedules impact the model @tab:beta_schedule_ablation, varying the number of epochs (0, 2, 4, 6) where KL and TC losses are deactivated, followed by four warm-up epochs. The best configuration, with 4 zero-epochs, improves classification, reaching 59% micro-F1 and *52% macro-F1*, and improves disentanglement, in particular increasing *separation $R^2$ above 0.14*. As for translation, the model shows modest improvements, reducing copy rate down to 65%, without affecting median-PPL; but still fails to achieve emotion translation.
 ]
+
+
+#label[Reproducibility]
+#limit-text(red-limit: 500)[
+
+We tune the model by varying the latent bottleneck and the components that most affect task performance, while keeping the optimization setup fixed across comparable runs. We use learning rate $2 times 10^(-4)$, train batch size 8, evaluation batch size 16, weight decay $10^(-2)$, 10 training epochs, and 0.1 warmup ratio. This setup is stable enough for our experiments, so we focus the search on scalar emotion factors, context-vector size, pooling strategy, skip connections, decoder LoRA, adversarial regularization, and KL/TC warmup. The best trade-off uses a compact 64-dimensional context vector, with micro-$F_1$ around 0.59 and macro-$F_1$ around 0.52. The repository includes a _reproducible_scripts/_ folder with the Slurm scripts used to train, evaluate, and summarize the reported runs: _train_eval_\*_, _summarize_\*_, _run_reconstruction_\*_, _run_translation_\*_, and _collect_beta_classification_samples.slurm_. Attention analyses are reproduced with _analyze_attention_maps.py_, _visualize_attention_examples.py_, and _aggregate_attention_words_by_emotion.py_. Further architectural details and ablations are reported in  @tab:arch_1_size.
+]
+
+
+
 
 #place(
   top + right,
