@@ -151,6 +151,10 @@
   title: [Emo-DiVA: Emotion Disentanglement \ via Variational Autoencoders],
   authors: make-authors(
     (
+      name: [Pietro \ Maran],
+      affiliation: [],
+    ),
+    (
       name: [Tebe \ Nigrelli],
       affiliation: [],
     ),
@@ -168,10 +172,6 @@
     ),
     (
       name: [Ali Emre \ Senel],
-      affiliation: [],
-    ),
-    (
-      name: [Pietro \ Maran],
       affiliation: [],
     ),
   ),
@@ -317,8 +317,7 @@ This model preserves the previous disentanglement results, while slightly improv
 
 #label[Reproducibility]
 #limit-text(red-limit: 500)[
-
-  We tune the model by varying the latent bottleneck and the components that most affect task performance, while keeping the optimization setup fixed across comparable runs. We use learning rate $2 times 10^(-4)$, train batch size 8, evaluation batch size 16, weight decay $10^(-2)$, 10 training epochs, and 0.1 warmup ratio. This setup is stable enough for our experiments, so we focus the search on scalar emotion factors, context-vector size, pooling strategy, skip connections, decoder LoRA, adversarial regularization, and KL/TC warmup. The best trade-off uses a compact 64-dimensional context vector, with micro-$F_1$ around 0.59 and macro-$F_1$ around 0.52. The repository includes a _reproducible_scripts/_ folder with the Slurm scripts used to train, evaluate, and summarize the reported runs: _train_eval_\*_, _summarize_\*_, _run_reconstruction_\*_, _run_translation_\*_, and _collect_beta_classification_samples.slurm_. Attention analyses are reproduced with _analyze_attention_maps.py_, _visualize_attention_examples.py_, and _aggregate_attention_words_by_emotion.py_. Further architectural details and ablations are reported in  @tab:arch_1_size.
+  We tune the model by varying the latent bottleneck and the components that most affect task performance, while keeping the optimization setup fixed across comparable runs. We use learning rate $2 times 10^(-4)$, train batch size 8, evaluation batch size 16, weight decay $10^(-2)$, 10 training epochs, and 0.1 warmup ratio. This setup is stable enough for our experiments, so we focus the search on scalar emotion factors, context-vector size, pooling strategy, skip connections, decoder LoRA, adversarial regularization, and KL/TC warmup. The best trade-off uses a compact 64-dimensional context vector, with micro-$F_1$ around 0.59 and macro-$F_1$ around 0.52. The repository includes a _reproducible_scripts/_ folder with the Slurm scripts used to train, evaluate, and summarize the reported runs: _train_eval_\*_, _summarize_\*_, _run_reconstruction_\*_, _run_translation_\*_, and _collect_beta_classification_samples.slurm_. Attention analyses are also reproduced using _analyze_attention_maps.py_, _visualize_attention_examples.py_, and _aggregate_attention_words_by_emotion.py_. Further architectural details and ablations are reported in  @tab:arch_1_size.
 ]
 
 
