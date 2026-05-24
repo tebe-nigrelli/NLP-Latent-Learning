@@ -174,7 +174,6 @@
       name: [Pietro \ Maran],
       affiliation: [],
     ),
-
   ),
 )
 
@@ -234,6 +233,17 @@
   We evaluate classification with *macro-F1* and *micro-F1*. Reconstruction is measured with *exact match* and *token F1*. For translation, we only report fluency through *GPT-2 perplexity* (PPL), since outputs are often nonsensical. We also report *median-PPL*, because *mean-PPL* suffers from the presence of large outliers.
 ]
 
+#place(
+  bottom + right,
+  scope: "column",
+  float: true,
+  block(width: 100%)[
+    #figure(
+      image("img/goemotions_emotion_counts_sorted_excluding_neutral.png", width: 100%),
+      caption: [Label frequency in the dataset],
+    ) <EDA>
+  ],
+)
 
 = Exploratory Data Analysis
 
@@ -308,7 +318,7 @@ This model preserves the previous disentanglement results, while slightly improv
 #label[Reproducibility]
 #limit-text(red-limit: 500)[
 
-We tune the model by varying the latent bottleneck and the components that most affect task performance, while keeping the optimization setup fixed across comparable runs. We use learning rate $2 times 10^(-4)$, train batch size 8, evaluation batch size 16, weight decay $10^(-2)$, 10 training epochs, and 0.1 warmup ratio. This setup is stable enough for our experiments, so we focus the search on scalar emotion factors, context-vector size, pooling strategy, skip connections, decoder LoRA, adversarial regularization, and KL/TC warmup. The best trade-off uses a compact 64-dimensional context vector, with micro-$F_1$ around 0.59 and macro-$F_1$ around 0.52. The repository includes a _reproducible_scripts/_ folder with the Slurm scripts used to train, evaluate, and summarize the reported runs: _train_eval_\*_, _summarize_\*_, _run_reconstruction_\*_, _run_translation_\*_, and _collect_beta_classification_samples.slurm_. Attention analyses are reproduced with _analyze_attention_maps.py_, _visualize_attention_examples.py_, and _aggregate_attention_words_by_emotion.py_. Further architectural details and ablations are reported in  @tab:arch_1_size.
+  We tune the model by varying the latent bottleneck and the components that most affect task performance, while keeping the optimization setup fixed across comparable runs. We use learning rate $2 times 10^(-4)$, train batch size 8, evaluation batch size 16, weight decay $10^(-2)$, 10 training epochs, and 0.1 warmup ratio. This setup is stable enough for our experiments, so we focus the search on scalar emotion factors, context-vector size, pooling strategy, skip connections, decoder LoRA, adversarial regularization, and KL/TC warmup. The best trade-off uses a compact 64-dimensional context vector, with micro-$F_1$ around 0.59 and macro-$F_1$ around 0.52. The repository includes a _reproducible_scripts/_ folder with the Slurm scripts used to train, evaluate, and summarize the reported runs: _train_eval_\*_, _summarize_\*_, _run_reconstruction_\*_, _run_translation_\*_, and _collect_beta_classification_samples.slurm_. Attention analyses are reproduced with _analyze_attention_maps.py_, _visualize_attention_examples.py_, and _aggregate_attention_words_by_emotion.py_. Further architectural details and ablations are reported in  @tab:arch_1_size.
 ]
 
 
@@ -362,8 +372,6 @@ We tune the model by varying the latent bottleneck and the components that most 
 #limit-text(red-limit: 150)[
   We investigated whether the latent space of an encoder-decoder model can be disentangled into emotion and semantic context. To this end, we inserted a FactorVAE between the encoder and decoder of a T5 model and refined the architecture toward a FiLM-style design. The final models achieved competitive performance on emotion classification and sentence reconstruction, but failed to perform reliable emotion translation. These results suggest that the proposed research direction may be limited by dataset size, model choice, and an unavoidable emotional entanglement in the latent representation. Future work could explore alternative encoder-decoder models, such as BART, which is pretrained as a denoising autoencoder. Moreover, weakening copy loss through a stochastic mask may help reduce overfitting. Finally, applying dimensionality reduction and latent-space visualization techniques can help clarify why disentanglement and emotion-controlled generation remain challenging.
 ]
-
-#pagebreak()
 
 = Limitations
 
