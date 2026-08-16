@@ -189,6 +189,12 @@
     The results suggest that we achieve partial disentanglement of emotion, but architecture and dataset are jointly insufficient to implement translation.
   ],
 )
+
+#align(center)[
+  \ 
+  #text(9pt)[#link("https://github.com/tebe-nigrelli/NLP-Latent-Learning")]
+]
+
 = Introduction
 
 #limit-text(red-limit: 300)[
@@ -344,9 +350,6 @@ This model preserves the previous disentanglement results, while slightly improv
 #limit-text(red-limit: 150)[
   We investigated whether the latent space of an encoder-decoder model can be disentangled into emotion and semantic context. To this end, we inserted a FactorVAE between the encoder and decoder of a T5 model and refined the architecture toward a FiLM-style design. The final models achieved competitive performance on emotion classification and sentence reconstruction, but failed to perform reliable emotion translation. These results suggest that the proposed research direction may be limited by dataset size, model choice, and an unavoidable emotional entanglement in the latent representation. Future work could explore alternative encoder-decoder models, such as BART, which is pretrained as a denoising autoencoder. Moreover, weakening copy loss through a stochastic mask may help reduce overfitting. Finally, applying dimensionality reduction and latent-space visualization techniques can help clarify why disentanglement and emotion-controlled generation remain challenging.
 ]
-
-#pagebreak()
-
 = Limitations
 
 #label[Dataset]

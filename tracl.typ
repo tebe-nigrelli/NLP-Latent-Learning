@@ -32,12 +32,12 @@
         #align(center)[
           #if use-title {
             title()
-            v(2.2em)
+            v(1em)
           } else {
             text(15pt, font: tracl-serif)[#par(leading: 0.5em)[
               *#papertitle*
             ]]
-            v(2.5em)
+            v(1em)
           }
 
           #if anonymous {
@@ -186,7 +186,7 @@
   // overall page setup - this only makes sense if we generate PDF
   let page-numbering = if anonymous { "1" } else { none } // number pages only if anonymous
   show: show-target(paged: doc => {
-    set page(paper: "a4", margin: (x: 2.5cm, y: 2.5cm), columns: 2, numbering: page-numbering)
+    set page(paper: "a4", margin: (x: 2.12cm, y: 2cm), columns: 2, numbering: page-numbering)
     set columns(gutter: 6mm)
 
     doc
