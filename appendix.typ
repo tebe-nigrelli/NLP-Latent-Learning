@@ -92,15 +92,15 @@
         header-cell[B. MIG],
       ),
 
-      [`joint_emotion_context`], [28], [64], [0.580], [0.508], [0.149], [0.019], [0.241],
-      [`joint_emotion_context`], [28], [128], [0.579], notable[0.514], [0.151], [-0.017], [0.202],
-      [`per_emotion_dim`], [28], [64], [0.576], [0.508], [0.131], [0.002], [0.195],
-      [`per_emotion_dim`], [28], [128], [0.580], [0.491], [0.130], [-0.032], [0.172],
+      [joint_emotion_context], [28], [64], [0.580], [0.508], [0.149], [0.019], [0.241],
+      [joint_emotion_context], [28], [128], [0.579], notable[0.514], [0.151], [-0.017], [0.202],
+      [per_emotion_dim], [28], [64], [0.576], [0.508], [0.131], [0.002], [0.195],
+      [per_emotion_dim], [28], [128], [0.580], [0.491], [0.130], [-0.032], [0.172],
 
-      [`joint_emotion_context`], [56], [64], [0.585], [0.504], [0.164], notable[0.041], notable[0.246],
-      [`joint_emotion_context`], [56], [128], [0.587], notable[0.514], notable[0.166], [-0.006], [0.218],
-      [`per_emotion_dim`], [56], [64], notable[0.591], [0.504], [0.155], [0.030], [0.211],
-      [`per_emotion_dim`], [56], [128], [0.589], [0.505], [0.155], [-0.012], [0.203],
+      [joint_emotion_context], [56], [64], [0.585], [0.504], [0.164], notable[0.041], notable[0.246],
+      [joint_emotion_context], [56], [128], [0.587], notable[0.514], notable[0.166], [-0.006], [0.218],
+      [per_emotion_dim], [56], [64], notable[0.591], [0.504], [0.155], [0.030], [0.211],
+      [per_emotion_dim], [56], [128], [0.589], [0.505], [0.155], [-0.012], [0.203],
     ),
     caption: [Architecture 1 results],
   ) <tab:arch_1_results>
@@ -374,7 +374,7 @@
   ) <tab:predicted-emotion-kl-entropy-quantiles>
 
   #pagebreak()
-  
+
   == Translation Samples
   Architecture 5 emotion translation samples: in some cases the model leaves the text unchanged, even when source emotion conflicts with the target. Otherwise, the model edits the sentence in ways unrelated to (or opposite of) the target emotion: eg. substituting #emph[hardly] with #emph[sadly] for a joy target, and deleting a middle clause without emotional restructuring.
 
