@@ -2,9 +2,12 @@
 
 This repository contains the code used for the **Emo-DiVA** NLP project: **Emotion Disentanglement via Variational Autoencoders**.
 
+
 The project studies whether the hidden states of an encoder-decoder language model can be pushed into a more interpretable latent space. In particular, we place a FactorVAE between the encoder and decoder of FLAN-T5 and try to separate the latent representation into an emotion branch and a remaining context branch. The goal is not only emotion classification, but also controllable emotion translation: changing the emotional tone of a sentence while preserving its content.
 
 The main result is mixed. The best models learn a useful emotion subspace for multi-label emotion classification and sentence reconstruction, but they do not reliably perform emotion translation.
+
+The writeups are available as a [project proposal](Project_Proposal.pdf) and [final report](<NLP Emo-Diva Report.pdf>). Their sources are written in [Typst](https://typst.app/) (`Project_Proposal.typ` and `main.typ`).
 
 ## Paper summary
 
